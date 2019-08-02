@@ -1,0 +1,125 @@
+version: v1.0.0
+
+baseGoContainer: &baseGoContainer
+  name: go
+  image: quay.io/deis/lightweight-docker-go:v0.7.0
+  sourceMountPath: /go/src/github.com/lovethedrake/brigdrake
+  workingDirectory: /go/src/github.com/lovethedrake/brigdrake
+  tty: true
+
+baseDindContainer: &baseDindContainer
+  name: dind
+  image: krancour/dind:18.09.5
+  sourceMountPath: /go/src/github.com/lovethedrake/brigdrake
+  workingDirectory: /go/src/github.com/lovethedrake/brigdrake
+  privileged: true
+
+jobs:
+
+################################################################################
+# Utility jobs                                                                 #
+################################################################################
+
+  dep:
+    containers:
+    - <<: *baseGoContainer
+      command: dep ensure -v
+
+################################################################################
+# Test jobs                                                                    #
+################################################################################
+
+  verify-vendored-code:
+    containers:
+    - <<: *baseGoContainer
+      command: dep check
+
+  test-unit:
+    containers:
+    - <<: *baseGoContainer
+      command: go test -timeout 30s -race -coverprofile=coverage.txt -covermode=atomic ./cmd/... ./pkg/...
+
+  lint:
+    containers:
+    - <<: *baseGoContainer
+      command: golangci-lint run ./cmd/... ./pkg/...
+
+################################################################################
+# Build / publish jobs                                                         #
+################################################################################
+
+  clean:
+    containers:
+    - <<: *baseGoContainer
+      command: rm -rf bin/
+
+  # This requires a lot of privilege to run and may be useful locally, but
+  # favor the DinD variant for use in CI/CD pipelines.
+  build-worker-dood:
+    containers:
+    - name: dood
+      image: krancour/dind:18.09.5
+      sourceMountPath: /go/src/github.com/lovethedrake/brigdrake
+      workingDirectory: /go/src/github.com/lovethedrake/brigdrake
+      mountDockerSocket: true
+      tty: true
+      command: scripts/build-worker-dood.sh
+
+  build-worker-dind:
+    containers:
+    - <<: *baseDindContainer
+      command: scripts/build-worker-dind.sh
+
+  publish-worker-dind:
+    containers:
+    - <<: *baseDindContainer
+      command: scripts/publish-worker-dind.sh
+
+################################################################################
+# Pipelines                                                                    #
+################################################################################
+
+pipelines:
+
+################################################################################
+# CI pipelines                                                                 #
+################################################################################
+
+  test:
+    criteria:
+      branches:
+        ignore:
+        - master
+    stages:
+    - jobs:
+      - lint
+      - verify-vendored-code
+      - test-unit
+    - jobs:
+      - build-worker-dind
+
+  master:
+    criteria:
+      branches:
+        only:
+        - master
+    stages:
+    - jobs:
+      - lint
+      - verify-vendored-code
+      - test-unit
+    - jobs:
+      - publish-worker-dind
+
+################################################################################
+# Release pipeline                                                             #
+################################################################################
+
+  release:
+    criteria:
+      tags:
+        only:
+        - /v[0-9]+(\.[0-9]+)*(\-.+)?/
+    stages:
+    - jobs:
+      - publish-worker-dind
