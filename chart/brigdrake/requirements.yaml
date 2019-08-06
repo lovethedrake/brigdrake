@@ -1,0 +1,9 @@
+dependencies:
+  - name: nfs-server-provisioner
+    alias: nfs
+    version: 0.3.0
+    repository: https://kubernetes-charts.storage.googleapis.com
+    condition: nfs.enabled
+  - name: brigade
+    version: 1.2.0
+    repository: https://brigadecore.github.io/charts

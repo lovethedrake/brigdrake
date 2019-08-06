@@ -1,0 +1,140 @@
+## This is the main configuration file for the brigdrake chart.
+##
+## To override values here, specify them in your own YAML file, and override
+## during install or upgrade:
+##
+##    $ helm install -n brigdrake -f myValues.yaml brigdrake/brigdrake
+
+################################################################################
+## brigdrake sub-charts configuration
+##
+## This includes:
+## - nfs
+## - brigade (which has sub-charts of its own)
+##
+## Brigade configuration NOT affecting subcharts can be found toward the bottom
+## of this file.
+################################################################################
+
+## The nfs storage class provider is enabled by default
+nfs:
+  enabled: true
+
+## Brigade is enabled by default and pre-configured to support Drake
+brigade:
+
+  ##############################################################################
+  ## Brigade sub-charts configuration
+  ##############################################################################
+
+  ## Kashti, the Brigade Dashboard, is enabled by default.
+  ##
+  ## Further configuration of Kashti-specific values would also go here, e.g.:
+  ##
+  ## kashti:
+  ##   image:
+  ##     repository: myrepository
+  ##     ...
+  ##
+  ## For all configuration options, refer to the kashti chart in the
+  ## https://brigadecore.github.io/charts chart repository.
+  kashti:
+    service:
+      type: LoadBalancer
+    ingress:
+      enabled: false
+      hosts:
+      - kashti.brigdrake.example.com
+      annotations: {}
+      tls:
+      ## Secrets must be manually created in the namespace.
+      # - secretName: kashti-tls
+      #   hosts:
+      #   - kashti.brigdrake.example.com
+
+  ## Brigade Github App, the GitHub Gateway for Brigade, is enabled by default.
+  ##
+  ## Further configuration of Brigade Github App-specific values would also go
+  ## here, e.g.:
+  ##
+  ## brigade-github-app:
+  ##   github:
+  ##     appID: myGithubAppID
+  ##     ...
+  ##
+  ## For all configuration options, refer to the brigade-github-app chart in
+  ## the https://brigadecore.github.io/charts chart repository.
+  brigade-github-app:
+    service:
+      type: LoadBalancer
+    ingress:
+      enabled: false
+      hosts:
+      - ghapp.brigdrake.example.com
+      annotations: {}
+      tls:
+      ## Secrets must be manually created in the namespace.
+      # - secretName: ghapp-tls
+      #   hosts:
+      #   - ghapp.brigdrake.example.com
+    gateway:
+      # The author associations who are allowed to have PRs built
+      # Classes are: COLLABORATOR, CONTRIBUTOR, OWNER, NONE, MEMBER, FIRST_TIMER, FIRST_TME_CONTRIBUTOR
+      # See https://developer.github.com/v4/enum/commentauthorassociation/
+      # To completely disable pull request builds, leave this list blank.
+      allowedAuthorRoles:
+      - OWNER
+      - MEMBER
+      - COLLABORATOR
+      emittedEvents:
+      - "*"
+    github:
+      ## The x509 PEM-formatted keyfile GitHub issued for you App.
+      key: |
+        REQUIRED: Your key goes here.
+      ## This represents the unique ID for a GitHub App
+      ## The value can be retrieved from the main App page or any inbound
+      ## webhook payloads.
+      appID:
+      ## Trigger a Check Suite on Pull Requests
+      ## This will need to be set to true to enable running Check Suites on PRs
+      ## originating from forks.
+      checkSuiteOnPR: true
+      ## Set a defaultSharedSecret if you want to use this one instance of the
+      ## Github gateway with multiple Brigade projects. Leave the shared secret
+      ## field blank in project-level configuration and this default will be
+      ## used.
+      # defaultSharedSecret:
+
+  ##############################################################################
+  ## Brigade chart configuration
+  ##
+  ## Further configuration of Brigade-specific values would also go here.
+  ## 
+  ## For all configuration options, refer to the brigade chart in the
+  ## https://brigadecore.github.io/charts chart repository.
+  ##############################################################################
+
+  ## worker is created on demand by the controller to coordinate individual
+  ## builds. This configuration overrides the usual Brigade worker with the
+  ## brigdrake worker.
+  worker:
+    registry: lovethedrake
+    name: brigdrake-worker
+    tag: v0.1.0
+    command: /brigdrake/bin/brigdrake-worker
+    defaultBuildStorageClass: nfs
+    defaultCacheStorageClass: nfs
+
+################################################################################
+## The logic for conditionally including subcharts of other subcharts seems not
+## to work as one might expect. As a workaround, we move sub-sub-chart
+## enable/disable flags up a level from where we might otherwise expect to
+## find them.
+################################################################################
+
+kasthi:
+  enabled: true
+
+brigade-github-app:
+  enabled: true
