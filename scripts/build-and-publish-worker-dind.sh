@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# AVOID INVOKING THIS SCRIPT DIRECTLY -- USE `drake run publish-worker-dind`
+# AVOID INVOKING THIS SCRIPT DIRECTLY -- USE `drake run build-and-publish-worker-dind`
 
 set -euo pipefail
 

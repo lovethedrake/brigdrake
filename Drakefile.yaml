@@ -10,9 +10,15 @@ baseGoContainer: &baseGoContainer
 baseDindContainer: &baseDindContainer
   name: dind
   image: krancour/dind:18.09.5
-  sourceMountPath: /go/src/github.com/lovethedrake/brigdrake
-  workingDirectory: /go/src/github.com/lovethedrake/brigdrake
+  sourceMountPath: /brigdrake
+  workingDirectory: /brigdrake
   privileged: true
+
+baseHelmContainer: &baseHelmContainer
+  name: helm
+  image: dtzar/helm-kubectl:2.14.1
+  sourceMountPath: /brigdrake
+  workingDirectory: /brigdrake
 
 jobs:
 
@@ -44,6 +50,11 @@ jobs:
     - <<: *baseGoContainer
       command: golangci-lint run ./cmd/... ./pkg/...
 
+  lint-chart:
+    containers:
+    - <<: *baseHelmContainer
+      command: helm lint chart/brigdrake
+
 ################################################################################
 # Build / publish jobs                                                         #
 ################################################################################
@@ -70,10 +81,23 @@ jobs:
     - <<: *baseDindContainer
       command: scripts/build-worker-dind.sh
 
-  publish-worker-dind:
+  build-and-publish-worker-dind:
     containers:
     - <<: *baseDindContainer
-      command: scripts/publish-worker-dind.sh
+      command: scripts/build-and-publish-worker-dind.sh
+
+  build-chart:
+    containers:
+    - <<: *baseHelmContainer
+      command: scripts/build-chart.sh
+
+  publish-chart:
+    containers:
+    - name: node
+      image: node:10.16.1
+      sourceMountPath: /brigdrake
+      workingDirectory: /brigdrake
+      command: scripts/publish-chart.sh
 
 ################################################################################
 # Pipelines                                                                    #
@@ -90,13 +114,16 @@ pipelines:
       branches:
         ignore:
         - master
+        - gh-pages
     stages:
     - jobs:
       - lint
       - verify-vendored-code
       - test-unit
+      - lint-chart
     - jobs:
       - build-worker-dind
+      - build-chart
 
   master:
     criteria:
@@ -108,8 +135,13 @@ pipelines:
       - lint
       - verify-vendored-code
       - test-unit
+      - lint-chart
     - jobs:
-      - publish-worker-dind
+      - build-chart
+    - jobs:
+      - build-and-publish-worker-dind
+    - jobs:
+      - publish-chart
 
 ################################################################################
 # Release pipeline                                                             #
@@ -122,4 +154,8 @@ pipelines:
         - /v[0-9]+(\.[0-9]+)*(\-.+)?/
     stages:
     - jobs:
-      - publish-worker-dind
+      - build-chart
+    - jobs:
+      - build-and-publish-worker-dind
+    - jobs:
+      - publish-chart
