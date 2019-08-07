@@ -121,7 +121,7 @@ brigade:
   worker:
     registry: lovethedrake
     name: brigdrake-worker
-    tag: v0.1.0
+    tag: edge
     command: /brigdrake/bin/brigdrake-worker
     defaultBuildStorageClass: nfs
     defaultCacheStorageClass: nfs
