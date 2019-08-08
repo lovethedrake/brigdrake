@@ -7,10 +7,8 @@ import (
 	"github.com/lovethedrake/drakecore/config"
 )
 
-func (e *executor) runStage(
+func (b *buildExecutor) runStage(
 	ctx context.Context,
-	project Project,
-	event Event,
 	pipelineName string,
 	stageIndex int,
 	jobs []config.Job,
@@ -27,10 +25,8 @@ func (e *executor) runStage(
 			job.Name(),
 		)
 		runningJobs++
-		go e.runJobPod(
+		go b.runJobPod(
 			ctx,
-			project,
-			event,
 			pipelineName,
 			stageIndex,
 			job,

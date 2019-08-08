@@ -10,30 +10,26 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (e *executor) createSrcPVC(
-	project Project,
-	event Event,
-	pipelineName string,
-) error {
+func (b *buildExecutor) createSrcPVC(pipelineName string) error {
 	storageQuantity, err := resource.ParseQuantity(
-		project.Kubernetes.BuildStorageSize,
+		b.project.Kubernetes.BuildStorageSize,
 	)
 	if err != nil {
 		return errors.Wrapf(
 			err,
 			"error parsing storage quantity %s",
-			project.Kubernetes.BuildStorageSize,
+			b.project.Kubernetes.BuildStorageSize,
 		)
 	}
 	pvc := &v1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: srcPVCName(event.WorkerID, pipelineName),
+			Name: srcPVCName(b.event.WorkerID, pipelineName),
 			Labels: map[string]string{
 				"heritage":  "brigade",
 				"component": "buildStorage",
-				"project":   project.ID,
-				"worker":    strings.ToLower(event.WorkerID),
-				"build":     event.BuildID,
+				"project":   b.project.ID,
+				"worker":    strings.ToLower(b.event.WorkerID),
+				"build":     b.event.BuildID,
 				"pipeline":  pipelineName,
 			},
 		},
@@ -46,13 +42,13 @@ func (e *executor) createSrcPVC(
 			},
 		},
 	}
-	if project.Kubernetes.BuildStorageClass != "" {
-		pvc.Spec.StorageClassName = &project.Kubernetes.BuildStorageClass
-	} else if e.workerConfig.DefaultBuildStorageClass != "" {
-		pvc.Spec.StorageClassName = &e.workerConfig.DefaultBuildStorageClass
+	if b.project.Kubernetes.BuildStorageClass != "" {
+		pvc.Spec.StorageClassName = &b.project.Kubernetes.BuildStorageClass
+	} else if b.workerConfig.DefaultBuildStorageClass != "" {
+		pvc.Spec.StorageClassName = &b.workerConfig.DefaultBuildStorageClass
 	}
-	_, err = e.kubeClient.CoreV1().PersistentVolumeClaims(
-		project.Kubernetes.Namespace,
+	_, err = b.kubeClient.CoreV1().PersistentVolumeClaims(
+		b.project.Kubernetes.Namespace,
 	).Create(pvc)
 	if err != nil {
 		return errors.Wrapf(
@@ -64,15 +60,11 @@ func (e *executor) createSrcPVC(
 	return nil
 }
 
-func (e *executor) destroySrcPVC(
-	project Project,
-	event Event,
-	pipelineName string,
-) error {
-	if err := e.kubeClient.CoreV1().PersistentVolumeClaims(
-		project.Kubernetes.Namespace,
+func (b *buildExecutor) destroySrcPVC(pipelineName string) error {
+	if err := b.kubeClient.CoreV1().PersistentVolumeClaims(
+		b.project.Kubernetes.Namespace,
 	).Delete(
-		srcPVCName(event.WorkerID, pipelineName),
+		srcPVCName(b.event.WorkerID, pipelineName),
 		&metav1.DeleteOptions{},
 	); err != nil {
 		return errors.Wrapf(
