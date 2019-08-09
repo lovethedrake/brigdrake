@@ -10,10 +10,8 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 )
 
-func (e *executor) runPipeline(
+func (b *buildExecutor) runPipeline(
 	ctx context.Context,
-	project Project,
-	event Event,
 	pipeline config.Pipeline,
 	environment []string,
 	errCh chan<- error,
@@ -21,7 +19,7 @@ func (e *executor) runPipeline(
 	log.Printf("executing pipeline \"%s\"", pipeline.Name())
 	log.Printf("creating shared storage for pipeline \"%s\"", pipeline.Name())
 	var err error
-	if err = e.createSrcPVC(project, event, pipeline.Name()); err != nil {
+	if err = b.createSrcPVC(pipeline.Name()); err != nil {
 		errCh <- err
 		return
 	}
@@ -35,7 +33,7 @@ func (e *executor) runPipeline(
 			workerRequirement, rerr := labels.NewRequirement(
 				"worker",
 				selection.Equals,
-				[]string{event.WorkerID},
+				[]string{b.event.WorkerID},
 			)
 			if rerr != nil {
 				log.Printf(
@@ -46,8 +44,8 @@ func (e *executor) runPipeline(
 			} else {
 				labelSelector = labelSelector.Add(*workerRequirement)
 				log.Printf("deleting pods \"%s\"", labelSelector.String())
-				if derr := e.kubeClient.CoreV1().Pods(
-					project.Kubernetes.Namespace,
+				if derr := b.kubeClient.CoreV1().Pods(
+					b.project.Kubernetes.Namespace,
 				).DeleteCollection(
 					&metav1.DeleteOptions{},
 					metav1.ListOptions{
@@ -64,7 +62,7 @@ func (e *executor) runPipeline(
 		default:
 		}
 		log.Printf("destroying shared storage for pipeline \"%s\"", pipeline.Name())
-		if derr := e.destroySrcPVC(project, event, pipeline.Name()); derr != nil {
+		if derr := b.destroySrcPVC(pipeline.Name()); derr != nil {
 			log.Printf(
 				"error destroying shared storage for pipeline \"%s\": %s",
 				pipeline.Name(),
@@ -83,7 +81,7 @@ func (e *executor) runPipeline(
 		pipeline.Name(),
 	)
 	if err =
-		e.runSourceClonePod(ctx, project, event, pipeline.Name()); err != nil {
+		b.runSourceClonePod(ctx, pipeline.Name()); err != nil {
 		return
 	}
 	log.Printf(
@@ -96,10 +94,8 @@ func (e *executor) runPipeline(
 	default:
 	}
 	for stageIndex, stageJobs := range pipeline.Jobs() {
-		if err = e.runStage(
+		if err = b.runStage(
 			ctx,
-			project,
-			event,
 			pipeline.Name(),
 			stageIndex,
 			stageJobs,

@@ -14,15 +14,13 @@ import (
 	api "k8s.io/kubernetes/pkg/apis/core"
 )
 
-func (e *executor) runSourceClonePod(
+func (b *buildExecutor) runSourceClonePod(
 	ctx context.Context,
-	project Project,
-	event Event,
 	pipelineName string,
 ) error {
 	const srcDir = "/src"
 	jobName := fmt.Sprintf("%s-source-clone", pipelineName)
-	podName := fmt.Sprintf("%s-%s", jobName, event.BuildID)
+	podName := fmt.Sprintf("%s-%s", jobName, b.event.BuildID)
 	pod := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: podName,
@@ -30,9 +28,9 @@ func (e *executor) runSourceClonePod(
 				"heritage":  "brigade",
 				"component": "job",
 				"jobname":   jobName,
-				"project":   project.ID,
-				"worker":    event.WorkerID,
-				"build":     event.BuildID,
+				"project":   b.project.ID,
+				"worker":    b.event.WorkerID,
+				"build":     b.event.BuildID,
 			},
 		},
 		Spec: v1.PodSpec{
@@ -49,31 +47,31 @@ func (e *executor) runSourceClonePod(
 						},
 						{
 							Name:  "BRIGADE_BUILD_ID",
-							Value: event.BuildID,
+							Value: b.event.BuildID,
 						},
 						{
 							Name:  "BRIGADE_COMMIT_ID",
-							Value: event.Revision.Commit,
+							Value: b.event.Revision.Commit,
 						},
 						{
 							Name:  "BRIGADE_COMMIT_REF",
-							Value: event.Revision.Ref,
+							Value: b.event.Revision.Ref,
 						},
 						{
 							Name:  "BRIGADE_EVENT_PROVIDER",
-							Value: event.Provider,
+							Value: b.event.Provider,
 						},
 						{
 							Name:  "BRIGADE_EVENT_TYPE",
-							Value: event.Type,
+							Value: b.event.Type,
 						},
 						{
 							Name:  "BRIGADE_PROJECT_ID",
-							Value: project.ID,
+							Value: b.project.ID,
 						},
 						{
 							Name:  "BRIGADE_REMOTE_URL",
-							Value: project.Repo.CloneURL,
+							Value: b.project.Repo.CloneURL,
 						},
 						{
 							Name:  "BRIGADE_WORKSPACE",
@@ -81,11 +79,11 @@ func (e *executor) runSourceClonePod(
 						},
 						{
 							Name:  "BRIGADE_PROJECT_NAMESPACE",
-							Value: project.Kubernetes.Namespace,
+							Value: b.project.Kubernetes.Namespace,
 						},
 						{
 							Name:  "BRIGADE_SUBMODULES",
-							Value: strconv.FormatBool(project.Repo.InitGitSubmodules),
+							Value: strconv.FormatBool(b.project.Repo.InitGitSubmodules),
 						},
 						// TODO: Not really sure where I can get this from
 						// {
@@ -110,14 +108,14 @@ func (e *executor) runSourceClonePod(
 					Name: srcVolumeName,
 					VolumeSource: v1.VolumeSource{
 						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-							ClaimName: srcPVCName(event.WorkerID, pipelineName),
+							ClaimName: srcPVCName(b.event.WorkerID, pipelineName),
 						},
 					},
 				},
 			},
 		},
 	}
-	if project.Repo.SSHKey != "" {
+	if b.project.Repo.SSHKey != "" {
 		pod.Spec.Containers[0].Env = append(
 			pod.Spec.Containers[0].Env,
 			v1.EnvVar{
@@ -125,7 +123,7 @@ func (e *executor) runSourceClonePod(
 				ValueFrom: &v1.EnvVarSource{
 					SecretKeyRef: &v1.SecretKeySelector{
 						LocalObjectReference: v1.LocalObjectReference{
-							Name: project.ID,
+							Name: b.project.ID,
 						},
 						Key: "sshKey",
 					},
@@ -133,7 +131,7 @@ func (e *executor) runSourceClonePod(
 			},
 		)
 	}
-	if project.Repo.Token != "" {
+	if b.project.Repo.Token != "" {
 		pod.Spec.Containers[0].Env = append(
 			pod.Spec.Containers[0].Env,
 			v1.EnvVar{
@@ -141,7 +139,7 @@ func (e *executor) runSourceClonePod(
 				ValueFrom: &v1.EnvVarSource{
 					SecretKeyRef: &v1.SecretKeySelector{
 						LocalObjectReference: v1.LocalObjectReference{
-							Name: project.ID,
+							Name: b.project.ID,
 						},
 						Key: "github.token",
 					},
@@ -149,36 +147,36 @@ func (e *executor) runSourceClonePod(
 			},
 		)
 	}
-	if project.Kubernetes.VCSSidecarResourcesLimitsCPU != "" {
+	if b.project.Kubernetes.VCSSidecarResourcesLimitsCPU != "" {
 		cpuQuantity, err := resource.ParseQuantity(
-			project.Kubernetes.VCSSidecarResourcesLimitsCPU,
+			b.project.Kubernetes.VCSSidecarResourcesLimitsCPU,
 		)
 		if err != nil {
 			return err
 		}
 		pod.Spec.Containers[0].Resources.Limits["cpu"] = cpuQuantity
 	}
-	if project.Kubernetes.VCSSidecarResourcesLimitsMemory != "" {
+	if b.project.Kubernetes.VCSSidecarResourcesLimitsMemory != "" {
 		memoryQuantity, err := resource.ParseQuantity(
-			project.Kubernetes.VCSSidecarResourcesLimitsMemory,
+			b.project.Kubernetes.VCSSidecarResourcesLimitsMemory,
 		)
 		if err != nil {
 			return err
 		}
 		pod.Spec.Containers[0].Resources.Limits["memory"] = memoryQuantity
 	}
-	if project.Kubernetes.VCSSidecarResourcesRequestsCPU != "" {
+	if b.project.Kubernetes.VCSSidecarResourcesRequestsCPU != "" {
 		cpuQuantity, err := resource.ParseQuantity(
-			project.Kubernetes.VCSSidecarResourcesRequestsCPU,
+			b.project.Kubernetes.VCSSidecarResourcesRequestsCPU,
 		)
 		if err != nil {
 			return err
 		}
 		pod.Spec.Containers[0].Resources.Requests["cpu"] = cpuQuantity
 	}
-	if project.Kubernetes.VCSSidecarResourcesRequestsMemory != "" {
+	if b.project.Kubernetes.VCSSidecarResourcesRequestsMemory != "" {
 		memoryQuantity, err := resource.ParseQuantity(
-			project.Kubernetes.VCSSidecarResourcesRequestsMemory,
+			b.project.Kubernetes.VCSSidecarResourcesRequestsMemory,
 		)
 		if err != nil {
 			return err
@@ -186,7 +184,8 @@ func (e *executor) runSourceClonePod(
 		pod.Spec.Containers[0].Resources.Requests["memory"] = memoryQuantity
 	}
 
-	_, err := e.kubeClient.CoreV1().Pods(project.Kubernetes.Namespace).Create(pod)
+	_, err :=
+		b.kubeClient.CoreV1().Pods(b.project.Kubernetes.Namespace).Create(pod)
 	if err != nil {
 		return errors.Wrapf(
 			err,
@@ -196,7 +195,7 @@ func (e *executor) runSourceClonePod(
 	}
 
 	podsWatcher, err :=
-		e.kubeClient.CoreV1().Pods(project.Kubernetes.Namespace).Watch(
+		b.kubeClient.CoreV1().Pods(b.project.Kubernetes.Namespace).Watch(
 			metav1.ListOptions{
 				FieldSelector: fields.OneTermEqualSelector(
 					api.ObjectNameField,

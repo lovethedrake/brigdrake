@@ -2,14 +2,12 @@ package brigade
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/brigadecore/brigade-github-app/pkg/webhook"
 	"github.com/lovethedrake/drakecore/config"
 	"github.com/mattn/go-shellwords"
 	"github.com/pkg/errors"
@@ -25,10 +23,8 @@ const (
 	dockerSocketVolumeName = "docker-socket"
 )
 
-func (e *executor) runJobPod(
+func (b *buildExecutor) runJobPod(
 	ctx context.Context,
-	project Project,
-	event Event,
 	pipelineName string,
 	stage int,
 	job config.Job,
@@ -37,51 +33,35 @@ func (e *executor) runJobPod(
 ) {
 	var err error
 
-	webhookPayload := &webhook.Payload{}
-	if err = json.Unmarshal(event.Payload, webhookPayload); err != nil {
-		errCh <- err
-		return
-	}
-
-	if webhookPayload.Type == "check_run" ||
-		webhookPayload.Type == "check_suite" {
-		if err = notifyCheckStart(
-			webhookPayload,
-			job.Name(),
-			job.Name(),
-		); err != nil {
+	if b.jobStatusNotifier != nil {
+		if err = b.jobStatusNotifier.SendInProgressNotification(job); err != nil {
 			errCh <- err
 			return
 		}
 	}
 
 	jobName := fmt.Sprintf("%s-stage%d-%s", pipelineName, stage, job.Name())
-	podName := fmt.Sprintf("%s-%s", jobName, event.BuildID)
+	podName := fmt.Sprintf("%s-%s", jobName, b.event.BuildID)
 
 	defer func() {
 		// Ensure notification, if applicable
-		if webhookPayload.Type == "check_run" ||
-			webhookPayload.Type == "check_suite" {
-			conclusion := "failure"
+		if b.jobStatusNotifier != nil {
+			jsnFunc := b.jobStatusNotifier.SendFailureNotification
 			select {
 			case <-ctx.Done():
-				conclusion = "cancelled"
+				jsnFunc = b.jobStatusNotifier.SendCancelledNotification
 			default:
 				if err == nil {
-					conclusion = "success"
+					jsnFunc = b.jobStatusNotifier.SendSuccessNotification
 				} else if _, ok := err.(*timedOutError); ok {
-					conclusion = "timed_out"
+					jsnFunc = b.jobStatusNotifier.SendTimedOutNotification
 				}
 			}
-			if nerr := notifyCheckCompleted(
-				webhookPayload,
-				job.Name(),
-				job.Name(),
-				conclusion,
-			); nerr != nil {
-				log.Printf("error sending notification to github: %s", nerr)
+			if nerr := jsnFunc(job); nerr != nil {
+				log.Printf("error sending job status notification: %s", nerr)
 			}
 		}
+
 		// Return the error, even if it's nil
 		errCh <- err
 	}()
@@ -93,9 +73,9 @@ func (e *executor) runJobPod(
 				"heritage":             "brigade",
 				"component":            "job",
 				"jobname":              jobName,
-				"project":              project.ID,
-				"worker":               event.WorkerID,
-				"build":                event.BuildID,
+				"project":              b.project.ID,
+				"worker":               b.event.WorkerID,
+				"build":                b.event.BuildID,
 				"thedrake.io/pipeline": pipelineName,
 				"thedrake.io/stage":    strconv.Itoa(stage),
 				"thedrake.io/job":      job.Name(),
@@ -108,7 +88,7 @@ func (e *executor) runJobPod(
 					Name: srcVolumeName,
 					VolumeSource: v1.VolumeSource{
 						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-							ClaimName: srcPVCName(event.WorkerID, pipelineName),
+							ClaimName: srcPVCName(b.event.WorkerID, pipelineName),
 						},
 					},
 				},
@@ -125,8 +105,8 @@ func (e *executor) runJobPod(
 	}
 
 	pod.Spec.ImagePullSecrets =
-		make([]v1.LocalObjectReference, len(project.Kubernetes.ImagePullSecrets))
-	for i, imagePullSecret := range project.Kubernetes.ImagePullSecrets {
+		make([]v1.LocalObjectReference, len(b.project.Kubernetes.ImagePullSecrets))
+	for i, imagePullSecret := range b.project.Kubernetes.ImagePullSecrets {
 		pod.Spec.ImagePullSecrets[i] = v1.LocalObjectReference{
 			Name: imagePullSecret,
 		}
@@ -137,9 +117,7 @@ func (e *executor) runJobPod(
 	pod.Spec.Containers = make([]v1.Container, len(containers))
 	for i, container := range containers {
 		var jobPodContainer v1.Container
-		jobPodContainer, err = getJobPodContainer(
-			project,
-			event,
+		jobPodContainer, err = b.getJobPodContainer(
 			container,
 			environment,
 		)
@@ -165,8 +143,8 @@ func (e *executor) runJobPod(
 		pod.Spec.Containers[0] = jobPodContainer
 	}
 
-	if _, err = e.kubeClient.CoreV1().Pods(
-		project.Kubernetes.Namespace,
+	if _, err = b.kubeClient.CoreV1().Pods(
+		b.project.Kubernetes.Namespace,
 	).Create(pod); err != nil {
 		err = errors.Wrapf(err, "error creating pod \"%s\"", podName)
 		return
@@ -174,7 +152,7 @@ func (e *executor) runJobPod(
 
 	var podsWatcher watch.Interface
 	podsWatcher, err =
-		e.kubeClient.CoreV1().Pods(project.Kubernetes.Namespace).Watch(
+		b.kubeClient.CoreV1().Pods(b.project.Kubernetes.Namespace).Watch(
 			metav1.ListOptions{
 				FieldSelector: fields.OneTermEqualSelector(
 					api.ObjectNameField,
@@ -223,21 +201,19 @@ func (e *executor) runJobPod(
 	}
 }
 
-func getJobPodContainer(
-	project Project,
-	event Event,
+func (b *buildExecutor) getJobPodContainer(
 	container config.Container,
 	environment []string,
 ) (v1.Container, error) {
 	privileged := container.Privileged()
-	if privileged && !project.AllowPrivilegedJobs {
+	if privileged && !b.project.AllowPrivilegedJobs {
 		return v1.Container{}, errors.Errorf(
 			"container \"%s\" requested to be privileged, but privileged jobs are "+
 				"not permitted by this project",
 			container.Name(),
 		)
 	}
-	if container.MountDockerSocket() && !project.AllowHostMounts {
+	if container.MountDockerSocket() && !b.project.AllowHostMounts {
 		return v1.Container{}, errors.Errorf(
 			"container \"%s\" requested to mount the docker socket, but host "+
 				"mounts are not permitted by this project",
@@ -264,7 +240,7 @@ func getJobPodContainer(
 		Stdin:        container.TTY(),
 		TTY:          container.TTY(),
 	}
-	for k := range project.Secrets {
+	for k := range b.project.Secrets {
 		c.Env = append(
 			c.Env,
 			v1.EnvVar{
@@ -272,7 +248,7 @@ func getJobPodContainer(
 				ValueFrom: &v1.EnvVarSource{
 					SecretKeyRef: &v1.SecretKeySelector{
 						LocalObjectReference: v1.LocalObjectReference{
-							Name: strings.ToLower(event.BuildID),
+							Name: strings.ToLower(b.event.BuildID),
 						},
 						Key: k,
 					},

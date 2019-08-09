@@ -43,14 +43,18 @@ func main() {
 		log.Fatal(err)
 	}
 
-	executor := brigade.NewExecutor(workerConfig, kubeClient)
-
-	ctx := signals.Context()
-	if err = executor.ExecuteBuild(
-		ctx,
+	buildExecutor, err := brigade.NewBuildExecutor(
 		project,
 		event,
-	); err != nil {
+		workerConfig,
+		kubeClient,
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	ctx := signals.Context()
+	if err = buildExecutor.ExecuteBuild(ctx); err != nil {
 		log.Fatal(err)
 	}
 
