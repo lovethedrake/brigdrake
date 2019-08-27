@@ -2,7 +2,6 @@ package main
 
 import (
 	"log"
-	"os"
 
 	"github.com/lovethedrake/brigdrake/pkg/brigade"
 	"github.com/lovethedrake/brigdrake/pkg/signals"
@@ -57,11 +56,4 @@ func main() {
 	if err = buildExecutor.ExecuteBuild(ctx); err != nil {
 		log.Fatal(err)
 	}
-
-	select {
-	case <-ctx.Done():
-		os.Exit(1)
-	default:
-	}
-
 }

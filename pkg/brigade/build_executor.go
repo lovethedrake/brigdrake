@@ -6,12 +6,9 @@ import (
 	"fmt"
 	"log"
 	"regexp"
+	"sync"
 
-	"github.com/brigadecore/brigade-github-app/pkg/webhook"
-	"github.com/lovethedrake/brigdrake/pkg/vcs"
-	"github.com/lovethedrake/brigdrake/pkg/vcs/github"
 	"github.com/lovethedrake/drakecore/config"
-	"github.com/pkg/errors"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -24,11 +21,10 @@ type BuildExecutor interface {
 }
 
 type buildExecutor struct {
-	project           Project
-	event             Event
-	workerConfig      WorkerConfig
-	kubeClient        kubernetes.Interface
-	jobStatusNotifier vcs.JobStatusNotifier
+	project          Project
+	event            Event
+	kubeClient       kubernetes.Interface
+	pipelineExecutor *pipelineExecutor
 }
 
 // NewBuildExecutor returns a component that can drive brigade builds off of a
@@ -39,37 +35,20 @@ func NewBuildExecutor(
 	workerConfig WorkerConfig,
 	kubeClient kubernetes.Interface,
 ) (BuildExecutor, error) {
-	var jobStatusNotifier vcs.JobStatusNotifier
-	// This switch is all about obtaining event-provider-specific implementation
-	// of various interfaces that are used throughout the builder executor. While
-	// we're at it, we'll return an error if the event provider is one we don't
-	// accommodate.
-	switch event.Provider {
-	case "github":
-		webhookPayload := &webhook.Payload{}
-		if err := json.Unmarshal(event.Payload, webhookPayload); err != nil {
-			return nil, err
-		}
-		var err error
-		if webhookPayload.Type == "check_run" ||
-			webhookPayload.Type == "check_suite" {
-			jobStatusNotifier, err = github.NewJobStatusNotifier(webhookPayload)
-			if err != nil {
-				return nil, err
-			}
-		}
-	default:
-		return nil, errors.Errorf(
-			"cannot build executor for unrecognized event provider %s",
-			event.Provider,
-		)
+	pipelineExecutor, err := newPipelineExecutor(
+		project,
+		event,
+		workerConfig,
+		kubeClient,
+	)
+	if err != nil {
+		return nil, err
 	}
 	return &buildExecutor{
-		project:           project,
-		event:             event,
-		workerConfig:      workerConfig,
-		kubeClient:        kubeClient,
-		jobStatusNotifier: jobStatusNotifier,
+		project:          project,
+		event:            event,
+		kubeClient:       kubeClient,
+		pipelineExecutor: pipelineExecutor,
 	}, nil
 }
 
@@ -144,29 +123,50 @@ func (b *buildExecutor) ExecuteBuild(ctx context.Context) error {
 		fmt.Sprintf("DRAKE_BRANCH=%s", branch),
 		fmt.Sprintf("DRAKE_TAG=%s", tag),
 	}
-	var runningPipelines int
+
+	// Find all pipelines that are eligible for execution and start each in its
+	// own goroutine.
+	wg := &sync.WaitGroup{}
 	for _, pipeline := range pipelines {
 		if meetsCriteria, err := pipeline.Matches(branch, tag); err != nil {
 			return err
 		} else if meetsCriteria {
-			runningPipelines++
-			go b.runPipeline(ctx, pipeline, environment, errCh)
+			wg.Add(1)
+			go b.pipelineExecutor.executePipeline(
+				ctx,
+				pipeline,
+				environment,
+				wg,
+				errCh,
+			)
 		}
 	}
-	if runningPipelines == 0 {
-		return nil
-	}
-	// Wait for all the pipelines to finish.
+
+	// Convert wg to a channel so we can use it in selects
+	allExecutorsDone := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(allExecutorsDone)
+	}()
+
+	// Collect errors from all the executors until they have all completed
 	errs := []error{}
-	for err := range errCh {
-		if err != nil {
-			errs = append(errs, err)
-		}
-		runningPipelines--
-		if runningPipelines == 0 {
-			break
+errLoop:
+	for {
+		// Note this select isn't interruptable by canceled contexts because we
+		// never want to lose an error message. We know this will inevitably unblock
+		// when all the executor goroutines conclude-- which they WILL since those
+		// are interruptable.
+		select {
+		case err := <-errCh:
+			if err != nil {
+				errs = append(errs, err)
+			}
+		case <-allExecutorsDone:
+			break errLoop
 		}
 	}
+
 	if len(errs) > 1 {
 		return &multiError{errs: errs}
 	}

@@ -15,9 +15,25 @@ func (m *multiError) Error() string {
 }
 
 type timedOutError struct {
-	podName string
+	job string
 }
 
 func (t *timedOutError) Error() string {
-	return fmt.Sprintf("timed out waiting for pod \"%s\" to complete", t.podName)
+	return fmt.Sprintf("timed out waiting for job %q to complete", t.job)
+}
+
+type errPendingJobCanceled struct {
+	job string
+}
+
+func (e *errPendingJobCanceled) Error() string {
+	return fmt.Sprintf("pending job %q canceled", e.job)
+}
+
+type errInProgressJobAborted struct {
+	job string
+}
+
+func (e *errInProgressJobAborted) Error() string {
+	return fmt.Sprintf("in-progress job %q aborted", e.job)
 }

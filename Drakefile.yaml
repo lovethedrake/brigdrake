@@ -115,33 +115,46 @@ pipelines:
         ignore:
         - master
         - gh-pages
-    stages:
-    - jobs:
+    jobs:
+    - name: lint
+    - name: verify-vendored-code
+    - name: test-unit
+    - name: lint-chart
+    - name: build-worker-dind
+      dependencies:
       - lint
       - verify-vendored-code
       - test-unit
       - lint-chart
-    - jobs:
-      - build-worker-dind
-      - build-chart
+    - name: build-chart
+      dependencies:
+      - lint
+      - verify-vendored-code
+      - test-unit
+      - lint-chart
 
   master:
     criteria:
       branches:
         only:
         - master
-    stages:
-    - jobs:
+    jobs:
+    - name: lint
+    - name: verify-vendored-code
+    - name: test-unit
+    - name: lint-chart
+    - name: build-chart
+      dependencies:
       - lint
       - verify-vendored-code
       - test-unit
       - lint-chart
-    - jobs:
+    - name: build-and-publish-worker-dind
+      dependencies:
       - build-chart
-    - jobs:
+    - name: publish-chart
+      dependencies:
       - build-and-publish-worker-dind
-    - jobs:
-      - publish-chart
 
 ################################################################################
 # Release pipeline                                                             #
@@ -152,10 +165,11 @@ pipelines:
       tags:
         only:
         - /v[0-9]+(\.[0-9]+)*(\-.+)?/
-    stages:
-    - jobs:
+    jobs:
+    - name: build-chart
+    - name: build-and-publish-worker-dind
+      dependencies:
       - build-chart
-    - jobs:
+    - name: publish-chart
+      dependencies:
       - build-and-publish-worker-dind
-    - jobs:
-      - publish-chart

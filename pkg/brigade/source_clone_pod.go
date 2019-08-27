@@ -14,13 +14,13 @@ import (
 	api "k8s.io/kubernetes/pkg/apis/core"
 )
 
-func (b *buildExecutor) runSourceClonePod(
+func (p *pipelineExecutor) runSourceClonePod(
 	ctx context.Context,
 	pipelineName string,
 ) error {
 	const srcDir = "/src"
 	jobName := fmt.Sprintf("%s-source-clone", pipelineName)
-	podName := fmt.Sprintf("%s-%s", jobName, b.event.BuildID)
+	podName := fmt.Sprintf("%s-%s", jobName, p.event.BuildID)
 	pod := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: podName,
@@ -28,9 +28,9 @@ func (b *buildExecutor) runSourceClonePod(
 				"heritage":  "brigade",
 				"component": "job",
 				"jobname":   jobName,
-				"project":   b.project.ID,
-				"worker":    b.event.WorkerID,
-				"build":     b.event.BuildID,
+				"project":   p.project.ID,
+				"worker":    p.event.WorkerID,
+				"build":     p.event.BuildID,
 			},
 		},
 		Spec: v1.PodSpec{
@@ -47,31 +47,31 @@ func (b *buildExecutor) runSourceClonePod(
 						},
 						{
 							Name:  "BRIGADE_BUILD_ID",
-							Value: b.event.BuildID,
+							Value: p.event.BuildID,
 						},
 						{
 							Name:  "BRIGADE_COMMIT_ID",
-							Value: b.event.Revision.Commit,
+							Value: p.event.Revision.Commit,
 						},
 						{
 							Name:  "BRIGADE_COMMIT_REF",
-							Value: b.event.Revision.Ref,
+							Value: p.event.Revision.Ref,
 						},
 						{
 							Name:  "BRIGADE_EVENT_PROVIDER",
-							Value: b.event.Provider,
+							Value: p.event.Provider,
 						},
 						{
 							Name:  "BRIGADE_EVENT_TYPE",
-							Value: b.event.Type,
+							Value: p.event.Type,
 						},
 						{
 							Name:  "BRIGADE_PROJECT_ID",
-							Value: b.project.ID,
+							Value: p.project.ID,
 						},
 						{
 							Name:  "BRIGADE_REMOTE_URL",
-							Value: b.project.Repo.CloneURL,
+							Value: p.project.Repo.CloneURL,
 						},
 						{
 							Name:  "BRIGADE_WORKSPACE",
@@ -79,11 +79,11 @@ func (b *buildExecutor) runSourceClonePod(
 						},
 						{
 							Name:  "BRIGADE_PROJECT_NAMESPACE",
-							Value: b.project.Kubernetes.Namespace,
+							Value: p.project.Kubernetes.Namespace,
 						},
 						{
 							Name:  "BRIGADE_SUBMODULES",
-							Value: strconv.FormatBool(b.project.Repo.InitGitSubmodules),
+							Value: strconv.FormatBool(p.project.Repo.InitGitSubmodules),
 						},
 						// TODO: Not really sure where I can get this from
 						// {
@@ -108,14 +108,14 @@ func (b *buildExecutor) runSourceClonePod(
 					Name: srcVolumeName,
 					VolumeSource: v1.VolumeSource{
 						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-							ClaimName: srcPVCName(b.event.WorkerID, pipelineName),
+							ClaimName: srcPVCName(p.event.WorkerID, pipelineName),
 						},
 					},
 				},
 			},
 		},
 	}
-	if b.project.Repo.SSHKey != "" {
+	if p.project.Repo.SSHKey != "" {
 		pod.Spec.Containers[0].Env = append(
 			pod.Spec.Containers[0].Env,
 			v1.EnvVar{
@@ -123,7 +123,7 @@ func (b *buildExecutor) runSourceClonePod(
 				ValueFrom: &v1.EnvVarSource{
 					SecretKeyRef: &v1.SecretKeySelector{
 						LocalObjectReference: v1.LocalObjectReference{
-							Name: b.project.ID,
+							Name: p.project.ID,
 						},
 						Key: "sshKey",
 					},
@@ -131,7 +131,7 @@ func (b *buildExecutor) runSourceClonePod(
 			},
 		)
 	}
-	if b.project.Repo.Token != "" {
+	if p.project.Repo.Token != "" {
 		pod.Spec.Containers[0].Env = append(
 			pod.Spec.Containers[0].Env,
 			v1.EnvVar{
@@ -139,7 +139,7 @@ func (b *buildExecutor) runSourceClonePod(
 				ValueFrom: &v1.EnvVarSource{
 					SecretKeyRef: &v1.SecretKeySelector{
 						LocalObjectReference: v1.LocalObjectReference{
-							Name: b.project.ID,
+							Name: p.project.ID,
 						},
 						Key: "github.token",
 					},
@@ -147,36 +147,36 @@ func (b *buildExecutor) runSourceClonePod(
 			},
 		)
 	}
-	if b.project.Kubernetes.VCSSidecarResourcesLimitsCPU != "" {
+	if p.project.Kubernetes.VCSSidecarResourcesLimitsCPU != "" {
 		cpuQuantity, err := resource.ParseQuantity(
-			b.project.Kubernetes.VCSSidecarResourcesLimitsCPU,
+			p.project.Kubernetes.VCSSidecarResourcesLimitsCPU,
 		)
 		if err != nil {
 			return err
 		}
 		pod.Spec.Containers[0].Resources.Limits["cpu"] = cpuQuantity
 	}
-	if b.project.Kubernetes.VCSSidecarResourcesLimitsMemory != "" {
+	if p.project.Kubernetes.VCSSidecarResourcesLimitsMemory != "" {
 		memoryQuantity, err := resource.ParseQuantity(
-			b.project.Kubernetes.VCSSidecarResourcesLimitsMemory,
+			p.project.Kubernetes.VCSSidecarResourcesLimitsMemory,
 		)
 		if err != nil {
 			return err
 		}
 		pod.Spec.Containers[0].Resources.Limits["memory"] = memoryQuantity
 	}
-	if b.project.Kubernetes.VCSSidecarResourcesRequestsCPU != "" {
+	if p.project.Kubernetes.VCSSidecarResourcesRequestsCPU != "" {
 		cpuQuantity, err := resource.ParseQuantity(
-			b.project.Kubernetes.VCSSidecarResourcesRequestsCPU,
+			p.project.Kubernetes.VCSSidecarResourcesRequestsCPU,
 		)
 		if err != nil {
 			return err
 		}
 		pod.Spec.Containers[0].Resources.Requests["cpu"] = cpuQuantity
 	}
-	if b.project.Kubernetes.VCSSidecarResourcesRequestsMemory != "" {
+	if p.project.Kubernetes.VCSSidecarResourcesRequestsMemory != "" {
 		memoryQuantity, err := resource.ParseQuantity(
-			b.project.Kubernetes.VCSSidecarResourcesRequestsMemory,
+			p.project.Kubernetes.VCSSidecarResourcesRequestsMemory,
 		)
 		if err != nil {
 			return err
@@ -185,7 +185,7 @@ func (b *buildExecutor) runSourceClonePod(
 	}
 
 	_, err :=
-		b.kubeClient.CoreV1().Pods(b.project.Kubernetes.Namespace).Create(pod)
+		p.kubeClient.CoreV1().Pods(p.project.Kubernetes.Namespace).Create(pod)
 	if err != nil {
 		return errors.Wrapf(
 			err,
@@ -195,7 +195,7 @@ func (b *buildExecutor) runSourceClonePod(
 	}
 
 	podsWatcher, err :=
-		b.kubeClient.CoreV1().Pods(b.project.Kubernetes.Namespace).Watch(
+		p.kubeClient.CoreV1().Pods(p.project.Kubernetes.Namespace).Watch(
 			metav1.ListOptions{
 				FieldSelector: fields.OneTermEqualSelector(
 					api.ObjectNameField,
@@ -230,7 +230,7 @@ func (b *buildExecutor) runSourceClonePod(
 		case <-timer.C:
 			return errors.New("timed out waiting for source clone pod to complete")
 		case <-ctx.Done():
-			return nil
+			return ctx.Err()
 		}
 	}
 }
