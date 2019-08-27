@@ -5,7 +5,7 @@ __brigdrake__ provides Drake pipeline support for
 
 ## THIS PROJECT HIGHLY VOLATILE!
 
-devdrake implements the highly volatile
+brigdrake implements the highly volatile
 [drakespec](https://github.com/lovethedrake/drakespec) and, as such is, itself,
 highly volatile. Users are warned that breaking changes to this software are
 likely at any point up until its eventual 1.0 release.
