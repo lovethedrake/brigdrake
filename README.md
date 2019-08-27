@@ -3,6 +3,13 @@
 __brigdrake__ provides Drake pipeline support for
 [Brigade](https://brigade.sh/).
 
+## THIS PROJECT HIGHLY VOLATILE!
+
+devdrake implements the highly volatile
+[drakespec](https://github.com/lovethedrake/drakespec) and, as such is, itself,
+highly volatile. Users are warned that breaking changes to this software are
+likely at any point up until its eventual 1.0 release.
+
 # Installation
 
 Currently, brigdrake recommends creating a _new_ Brigade instance that is
@@ -219,16 +226,16 @@ Drake pipelines according to triggers defined in the project's `Drakefile.yaml`.
 
 For an example `Drakefile.yaml`, refer to the
 [brigdrake-demo](https://github.com/lovethedrake/brigdrake-demo) project. If
-desired, you can fork this repository and push commits to the fork to see
+desired, you can fork that repository and push commits to the fork to see
 brigdrake in action.
 
-Once triggered, a Drake pipeline built by brigdrake is little different from any typical Brigade build. All
-knowledge of Brigade and associated tools carries over
-to brigdrake.
+Once triggered, a Drake pipeline built by brigdrake is little different from any
+typical Brigade build. All knowledge of Brigade and associated tools carries
+over to brigdrake.
 
-These instructions count a complete overview of Brigade
-as out of scope, but do check out Kashti (the Brigade UI) to see events and the builds and pipeline executions
-they triggered. You can get the IP for Kashti as follows:
+These instructions count a complete overview of Brigade as out of scope, but do
+check out Kashti (the Brigade UI) to see events and the builds and pipeline
+executions they triggered. You can get the IP for Kashti as follows:
 
 ```console
 $ kubectl get service brigdrake-kashti -n brigdrake
