@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"strconv"
 	"strings"
 	"time"
 
@@ -23,47 +22,41 @@ const (
 	dockerSocketVolumeName = "docker-socket"
 )
 
-func (b *buildExecutor) runJobPod(
+func (p *pipelineExecutor) runJobPod(
 	ctx context.Context,
 	pipelineName string,
-	stage int,
 	job config.Job,
 	environment []string,
-	errCh chan<- error,
-) {
-	var err error
-
-	if b.jobStatusNotifier != nil {
-		if err = b.jobStatusNotifier.SendInProgressNotification(job); err != nil {
-			errCh <- err
-			return
+) error {
+	if p.jobStatusNotifier != nil {
+		if err := p.jobStatusNotifier.SendInProgressNotification(job); err != nil {
+			return err
 		}
 	}
 
-	jobName := fmt.Sprintf("%s-stage%d-%s", pipelineName, stage, job.Name())
-	podName := fmt.Sprintf("%s-%s", jobName, b.event.BuildID)
+	jobName := fmt.Sprintf("%s-%s", pipelineName, job.Name())
+	podName := fmt.Sprintf("%s-%s", jobName, p.event.BuildID)
+
+	var err error
 
 	defer func() {
 		// Ensure notification, if applicable
-		if b.jobStatusNotifier != nil {
-			jsnFunc := b.jobStatusNotifier.SendFailureNotification
+		if p.jobStatusNotifier != nil {
+			jsnFunc := p.jobStatusNotifier.SendFailureNotification
 			select {
 			case <-ctx.Done():
-				jsnFunc = b.jobStatusNotifier.SendCancelledNotification
+				jsnFunc = p.jobStatusNotifier.SendCancelledNotification
 			default:
 				if err == nil {
-					jsnFunc = b.jobStatusNotifier.SendSuccessNotification
+					jsnFunc = p.jobStatusNotifier.SendSuccessNotification
 				} else if _, ok := err.(*timedOutError); ok {
-					jsnFunc = b.jobStatusNotifier.SendTimedOutNotification
+					jsnFunc = p.jobStatusNotifier.SendTimedOutNotification
 				}
 			}
 			if nerr := jsnFunc(job); nerr != nil {
 				log.Printf("error sending job status notification: %s", nerr)
 			}
 		}
-
-		// Return the error, even if it's nil
-		errCh <- err
 	}()
 
 	pod := &v1.Pod{
@@ -73,11 +66,10 @@ func (b *buildExecutor) runJobPod(
 				"heritage":             "brigade",
 				"component":            "job",
 				"jobname":              jobName,
-				"project":              b.project.ID,
-				"worker":               b.event.WorkerID,
-				"build":                b.event.BuildID,
+				"project":              p.project.ID,
+				"worker":               p.event.WorkerID,
+				"build":                p.event.BuildID,
 				"thedrake.io/pipeline": pipelineName,
-				"thedrake.io/stage":    strconv.Itoa(stage),
 				"thedrake.io/job":      job.Name(),
 			},
 		},
@@ -88,7 +80,7 @@ func (b *buildExecutor) runJobPod(
 					Name: srcVolumeName,
 					VolumeSource: v1.VolumeSource{
 						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-							ClaimName: srcPVCName(b.event.WorkerID, pipelineName),
+							ClaimName: srcPVCName(p.event.WorkerID, pipelineName),
 						},
 					},
 				},
@@ -105,8 +97,8 @@ func (b *buildExecutor) runJobPod(
 	}
 
 	pod.Spec.ImagePullSecrets =
-		make([]v1.LocalObjectReference, len(b.project.Kubernetes.ImagePullSecrets))
-	for i, imagePullSecret := range b.project.Kubernetes.ImagePullSecrets {
+		make([]v1.LocalObjectReference, len(p.project.Kubernetes.ImagePullSecrets))
+	for i, imagePullSecret := range p.project.Kubernetes.ImagePullSecrets {
 		pod.Spec.ImagePullSecrets[i] = v1.LocalObjectReference{
 			Name: imagePullSecret,
 		}
@@ -117,7 +109,7 @@ func (b *buildExecutor) runJobPod(
 	pod.Spec.Containers = make([]v1.Container, len(containers))
 	for i, container := range containers {
 		var jobPodContainer v1.Container
-		jobPodContainer, err = b.getJobPodContainer(
+		jobPodContainer, err = p.getJobPodContainer(
 			container,
 			environment,
 		)
@@ -128,7 +120,7 @@ func (b *buildExecutor) runJobPod(
 				container.Name(),
 				job.Name(),
 			)
-			return
+			return err
 		}
 		// We'll treat all but the last container as sidecars. i.e. The last
 		// container in the job should be container 0 in the pod spec.
@@ -143,25 +135,24 @@ func (b *buildExecutor) runJobPod(
 		pod.Spec.Containers[0] = jobPodContainer
 	}
 
-	if _, err = b.kubeClient.CoreV1().Pods(
-		b.project.Kubernetes.Namespace,
+	if _, err = p.kubeClient.CoreV1().Pods(
+		p.project.Kubernetes.Namespace,
 	).Create(pod); err != nil {
 		err = errors.Wrapf(err, "error creating pod \"%s\"", podName)
-		return
+		return err
 	}
 
 	var podsWatcher watch.Interface
-	podsWatcher, err =
-		b.kubeClient.CoreV1().Pods(b.project.Kubernetes.Namespace).Watch(
+	if podsWatcher, err =
+		p.kubeClient.CoreV1().Pods(p.project.Kubernetes.Namespace).Watch(
 			metav1.ListOptions{
 				FieldSelector: fields.OneTermEqualSelector(
 					api.ObjectNameField,
 					podName,
 				).String(),
 			},
-		)
-	if err != nil {
-		return
+		); err != nil {
+		return err
 	}
 
 	// Timeout
@@ -178,42 +169,43 @@ func (b *buildExecutor) runJobPod(
 					"received unexpected object when watching pod \"%s\" for completion",
 					podName,
 				)
-				return
+				return err
 			}
 			for _, containerStatus := range pod.Status.ContainerStatuses {
 				if containerStatus.Name == mainContainerName {
 					if containerStatus.State.Terminated != nil {
 						if containerStatus.State.Terminated.Reason == "Completed" {
-							return
+							return nil
 						}
 						err = errors.Errorf("pod \"%s\" failed", podName)
-						return
+						return err
 					}
 					break
 				}
 			}
 		case <-timer.C:
-			err = &timedOutError{podName: podName}
-			return
+			err = &timedOutError{job: job.Name()}
+			return err
 		case <-ctx.Done():
-			return
+			err = &errInProgressJobAborted{job: job.Name()}
+			return err
 		}
 	}
 }
 
-func (b *buildExecutor) getJobPodContainer(
+func (p *pipelineExecutor) getJobPodContainer(
 	container config.Container,
 	environment []string,
 ) (v1.Container, error) {
 	privileged := container.Privileged()
-	if privileged && !b.project.AllowPrivilegedJobs {
+	if privileged && !p.project.AllowPrivilegedJobs {
 		return v1.Container{}, errors.Errorf(
 			"container \"%s\" requested to be privileged, but privileged jobs are "+
 				"not permitted by this project",
 			container.Name(),
 		)
 	}
-	if container.MountDockerSocket() && !b.project.AllowHostMounts {
+	if container.MountDockerSocket() && !p.project.AllowHostMounts {
 		return v1.Container{}, errors.Errorf(
 			"container \"%s\" requested to mount the docker socket, but host "+
 				"mounts are not permitted by this project",
@@ -240,7 +232,7 @@ func (b *buildExecutor) getJobPodContainer(
 		Stdin:        container.TTY(),
 		TTY:          container.TTY(),
 	}
-	for k := range b.project.Secrets {
+	for k := range p.project.Secrets {
 		c.Env = append(
 			c.Env,
 			v1.EnvVar{
@@ -248,7 +240,7 @@ func (b *buildExecutor) getJobPodContainer(
 				ValueFrom: &v1.EnvVarSource{
 					SecretKeyRef: &v1.SecretKeySelector{
 						LocalObjectReference: v1.LocalObjectReference{
-							Name: strings.ToLower(b.event.BuildID),
+							Name: strings.ToLower(p.event.BuildID),
 						},
 						Key: k,
 					},

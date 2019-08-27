@@ -1,5 +1,7 @@
 package brigade
 
+// TODO: Things in this file should move into a github-specific VCS package.
+
 type checkSuiteEvent struct {
 	Body checkSuiteBody `json:"body"`
 }
