@@ -1,4 +1,4 @@
-package brigade
+package executor
 
 import (
 	"context"
@@ -6,21 +6,102 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/lovethedrake/brigdrake/pkg/brigade"
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/client-go/kubernetes"
 	api "k8s.io/kubernetes/pkg/apis/core"
 )
 
-func (p *pipelineExecutor) runSourceClonePod(
+func runSourceClonePod(
 	ctx context.Context,
+	project brigade.Project,
+	event brigade.Event,
 	pipelineName string,
+	kubeClient kubernetes.Interface,
 ) error {
+	// TODO: Let's not define the values for these in two places.
+	jobName := fmt.Sprintf("%s-source-clone", pipelineName)
+	podName := fmt.Sprintf("%s-%s", jobName, event.BuildID)
+	pod, err := buildSourceClonePod(project, event, pipelineName)
+	if err != nil {
+		return err
+	}
+	_, err = kubeClient.CoreV1().Pods(project.Kubernetes.Namespace).Create(pod)
+	if err != nil {
+		return errors.Wrapf(
+			err,
+			"error creating source clone pod for pipeline %q",
+			pipelineName,
+		)
+	}
+	return waitForSourceClonePodCompletion(
+		ctx,
+		project.Kubernetes.Namespace,
+		podName,
+		10*time.Minute, // TODO: This probably shouldn't be hardcoded
+		kubeClient,
+	)
+}
+
+func waitForSourceClonePodCompletion(
+	ctx context.Context,
+	namespace string,
+	podName string,
+	timeout time.Duration,
+	kubeClient kubernetes.Interface,
+) error {
+	podsWatcher, err :=
+		kubeClient.CoreV1().Pods(namespace).Watch(
+			metav1.ListOptions{
+				FieldSelector: fields.OneTermEqualSelector(
+					api.ObjectNameField,
+					podName,
+				).String(),
+			},
+		)
+	if err != nil {
+		return err
+	}
+
+	// Timeout
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+
+	for {
+		select {
+		case event := <-podsWatcher.ResultChan():
+			pod, ok := event.Object.(*v1.Pod)
+			if !ok {
+				return errors.New(
+					"received unexpected object when watching source clone pod for " +
+						"completion")
+			}
+			if pod.Status.Phase == v1.PodFailed {
+				return errors.New("source clone pod failed")
+			}
+			if pod.Status.Phase == v1.PodSucceeded {
+				return nil
+			}
+		case <-timer.C:
+			return errors.New("timed out waiting for source clone pod to complete")
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
+func buildSourceClonePod(
+	project brigade.Project,
+	event brigade.Event,
+	pipelineName string,
+) (*v1.Pod, error) {
 	const srcDir = "/src"
 	jobName := fmt.Sprintf("%s-source-clone", pipelineName)
-	podName := fmt.Sprintf("%s-%s", jobName, p.event.BuildID)
+	podName := fmt.Sprintf("%s-%s", jobName, event.BuildID)
 	pod := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: podName,
@@ -28,9 +109,9 @@ func (p *pipelineExecutor) runSourceClonePod(
 				"heritage":  "brigade",
 				"component": "job",
 				"jobname":   jobName,
-				"project":   p.project.ID,
-				"worker":    p.event.WorkerID,
-				"build":     p.event.BuildID,
+				"project":   project.ID,
+				"worker":    event.WorkerID,
+				"build":     event.BuildID,
 			},
 		},
 		Spec: v1.PodSpec{
@@ -47,31 +128,31 @@ func (p *pipelineExecutor) runSourceClonePod(
 						},
 						{
 							Name:  "BRIGADE_BUILD_ID",
-							Value: p.event.BuildID,
+							Value: event.BuildID,
 						},
 						{
 							Name:  "BRIGADE_COMMIT_ID",
-							Value: p.event.Revision.Commit,
+							Value: event.Revision.Commit,
 						},
 						{
 							Name:  "BRIGADE_COMMIT_REF",
-							Value: p.event.Revision.Ref,
+							Value: event.Revision.Ref,
 						},
 						{
 							Name:  "BRIGADE_EVENT_PROVIDER",
-							Value: p.event.Provider,
+							Value: event.Provider,
 						},
 						{
 							Name:  "BRIGADE_EVENT_TYPE",
-							Value: p.event.Type,
+							Value: event.Type,
 						},
 						{
 							Name:  "BRIGADE_PROJECT_ID",
-							Value: p.project.ID,
+							Value: project.ID,
 						},
 						{
 							Name:  "BRIGADE_REMOTE_URL",
-							Value: p.project.Repo.CloneURL,
+							Value: project.Repo.CloneURL,
 						},
 						{
 							Name:  "BRIGADE_WORKSPACE",
@@ -79,11 +160,11 @@ func (p *pipelineExecutor) runSourceClonePod(
 						},
 						{
 							Name:  "BRIGADE_PROJECT_NAMESPACE",
-							Value: p.project.Kubernetes.Namespace,
+							Value: project.Kubernetes.Namespace,
 						},
 						{
 							Name:  "BRIGADE_SUBMODULES",
-							Value: strconv.FormatBool(p.project.Repo.InitGitSubmodules),
+							Value: strconv.FormatBool(project.Repo.InitGitSubmodules),
 						},
 						// TODO: Not really sure where I can get this from
 						// {
@@ -108,14 +189,14 @@ func (p *pipelineExecutor) runSourceClonePod(
 					Name: srcVolumeName,
 					VolumeSource: v1.VolumeSource{
 						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-							ClaimName: srcPVCName(p.event.WorkerID, pipelineName),
+							ClaimName: srcPVCName(event.WorkerID, pipelineName),
 						},
 					},
 				},
 			},
 		},
 	}
-	if p.project.Repo.SSHKey != "" {
+	if project.Repo.SSHKey != "" {
 		pod.Spec.Containers[0].Env = append(
 			pod.Spec.Containers[0].Env,
 			v1.EnvVar{
@@ -123,7 +204,7 @@ func (p *pipelineExecutor) runSourceClonePod(
 				ValueFrom: &v1.EnvVarSource{
 					SecretKeyRef: &v1.SecretKeySelector{
 						LocalObjectReference: v1.LocalObjectReference{
-							Name: p.project.ID,
+							Name: project.ID,
 						},
 						Key: "sshKey",
 					},
@@ -131,7 +212,7 @@ func (p *pipelineExecutor) runSourceClonePod(
 			},
 		)
 	}
-	if p.project.Repo.Token != "" {
+	if project.Repo.Token != "" {
 		pod.Spec.Containers[0].Env = append(
 			pod.Spec.Containers[0].Env,
 			v1.EnvVar{
@@ -139,7 +220,7 @@ func (p *pipelineExecutor) runSourceClonePod(
 				ValueFrom: &v1.EnvVarSource{
 					SecretKeyRef: &v1.SecretKeySelector{
 						LocalObjectReference: v1.LocalObjectReference{
-							Name: p.project.ID,
+							Name: project.ID,
 						},
 						Key: "github.token",
 					},
@@ -147,90 +228,41 @@ func (p *pipelineExecutor) runSourceClonePod(
 			},
 		)
 	}
-	if p.project.Kubernetes.VCSSidecarResourcesLimitsCPU != "" {
+	if project.Kubernetes.VCSSidecarResourcesLimitsCPU != "" {
 		cpuQuantity, err := resource.ParseQuantity(
-			p.project.Kubernetes.VCSSidecarResourcesLimitsCPU,
+			project.Kubernetes.VCSSidecarResourcesLimitsCPU,
 		)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		pod.Spec.Containers[0].Resources.Limits["cpu"] = cpuQuantity
 	}
-	if p.project.Kubernetes.VCSSidecarResourcesLimitsMemory != "" {
+	if project.Kubernetes.VCSSidecarResourcesLimitsMemory != "" {
 		memoryQuantity, err := resource.ParseQuantity(
-			p.project.Kubernetes.VCSSidecarResourcesLimitsMemory,
+			project.Kubernetes.VCSSidecarResourcesLimitsMemory,
 		)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		pod.Spec.Containers[0].Resources.Limits["memory"] = memoryQuantity
 	}
-	if p.project.Kubernetes.VCSSidecarResourcesRequestsCPU != "" {
+	if project.Kubernetes.VCSSidecarResourcesRequestsCPU != "" {
 		cpuQuantity, err := resource.ParseQuantity(
-			p.project.Kubernetes.VCSSidecarResourcesRequestsCPU,
+			project.Kubernetes.VCSSidecarResourcesRequestsCPU,
 		)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		pod.Spec.Containers[0].Resources.Requests["cpu"] = cpuQuantity
 	}
-	if p.project.Kubernetes.VCSSidecarResourcesRequestsMemory != "" {
+	if project.Kubernetes.VCSSidecarResourcesRequestsMemory != "" {
 		memoryQuantity, err := resource.ParseQuantity(
-			p.project.Kubernetes.VCSSidecarResourcesRequestsMemory,
+			project.Kubernetes.VCSSidecarResourcesRequestsMemory,
 		)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		pod.Spec.Containers[0].Resources.Requests["memory"] = memoryQuantity
 	}
-
-	_, err :=
-		p.kubeClient.CoreV1().Pods(p.project.Kubernetes.Namespace).Create(pod)
-	if err != nil {
-		return errors.Wrapf(
-			err,
-			"error creating source clone pod for pipeline \"%s\"",
-			pipelineName,
-		)
-	}
-
-	podsWatcher, err :=
-		p.kubeClient.CoreV1().Pods(p.project.Kubernetes.Namespace).Watch(
-			metav1.ListOptions{
-				FieldSelector: fields.OneTermEqualSelector(
-					api.ObjectNameField,
-					podName,
-				).String(),
-			},
-		)
-	if err != nil {
-		return err
-	}
-
-	// Timeout
-	// TODO: This probably should not be hard-coded
-	timer := time.NewTimer(10 * time.Minute)
-	defer timer.Stop()
-
-	for {
-		select {
-		case event := <-podsWatcher.ResultChan():
-			pod, ok := event.Object.(*v1.Pod)
-			if !ok {
-				return errors.New(
-					"received unexpected object when watching source clone pod for " +
-						"completion")
-			}
-			if pod.Status.Phase == v1.PodFailed {
-				return errors.New("source clone pod failed")
-			}
-			if pod.Status.Phase == v1.PodSucceeded {
-				return nil
-			}
-		case <-timer.C:
-			return errors.New("timed out waiting for source clone pod to complete")
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
+	return pod, nil
 }

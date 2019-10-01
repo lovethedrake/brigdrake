@@ -1,89 +1,47 @@
-package brigade
+package executor
 
 import (
 	"context"
-	"encoding/json"
 	"log"
 	"sync"
 
-	"github.com/brigadecore/brigade-github-app/pkg/webhook"
-	"github.com/lovethedrake/brigdrake/pkg/vcs"
-	"github.com/lovethedrake/brigdrake/pkg/vcs/github"
+	"github.com/lovethedrake/brigdrake/pkg/brigade"
+	"github.com/lovethedrake/brigdrake/pkg/drake"
 	"github.com/lovethedrake/drakecore/config"
-	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/client-go/kubernetes"
 )
 
-type pipelineExecutor struct {
-	project           Project
-	event             Event
-	workerConfig      WorkerConfig
-	kubeClient        kubernetes.Interface
-	jobStatusNotifier vcs.JobStatusNotifier
-}
-
-func newPipelineExecutor(
-	project Project,
-	event Event,
-	workerConfig WorkerConfig,
-	kubeClient kubernetes.Interface,
-) (*pipelineExecutor, error) {
-	var jobStatusNotifier vcs.JobStatusNotifier
-	// This switch is all about obtaining event-provider-specific implementation
-	// of various interfaces that are used throughout the pipeline executor. While
-	// we're at it, we'll return an error if the event provider is one we don't
-	// accommodate.
-	// TODO: Move this somewhere more appropriate.
-	switch event.Provider {
-	case "github":
-		webhookPayload := &webhook.Payload{}
-		if err := json.Unmarshal(event.Payload, webhookPayload); err != nil {
-			return nil, err
-		}
-		var err error
-		if webhookPayload.Type == "check_run" ||
-			webhookPayload.Type == "check_suite" {
-			jobStatusNotifier, err = github.NewJobStatusNotifier(webhookPayload)
-			if err != nil {
-				return nil, err
-			}
-		}
-	default:
-		return nil, errors.Errorf(
-			"cannot build executor for unrecognized event provider %s",
-			event.Provider,
-		)
-	}
-	return &pipelineExecutor{
-		project:           project,
-		event:             event,
-		workerConfig:      workerConfig,
-		kubeClient:        kubeClient,
-		jobStatusNotifier: jobStatusNotifier,
-	}, nil
-}
-
-func (p *pipelineExecutor) executePipeline(
+func executePipeline(
 	ctx context.Context,
+	project brigade.Project,
+	event brigade.Event,
+	workerConfig brigade.WorkerConfig,
 	pipeline config.Pipeline,
-	environment []string,
+	jobStatusNotifier drake.JobStatusNotifier,
+	kubeClient kubernetes.Interface,
 	wg *sync.WaitGroup,
 	errCh chan<- error,
 ) {
 	defer wg.Done()
-	log.Printf("executing pipeline \"%s\"", pipeline.Name())
+	log.Printf("executing pipeline %q", pipeline.Name())
 
-	log.Printf("creating shared storage for pipeline \"%s\"", pipeline.Name())
+	log.Printf("creating shared storage for pipeline %q", pipeline.Name())
 	var err error
-	if err = p.createSrcPVC(pipeline.Name()); err != nil {
+	if err = createSrcPVC(
+		project,
+		event,
+		workerConfig,
+		pipeline.Name(),
+		kubeClient,
+	); err != nil {
 		errCh <- err
 		return
 	}
 
-	log.Printf("created shared storage for pipeline \"%s\"", pipeline.Name())
+	log.Printf("created shared storage for pipeline %q", pipeline.Name())
 	defer func() {
 		// If context was canceled, we have a bunch of job pods to get rid of that
 		// we'd like to keep otherwise.
@@ -93,18 +51,18 @@ func (p *pipelineExecutor) executePipeline(
 			if workerRequirement, rerr := labels.NewRequirement(
 				"worker",
 				selection.Equals,
-				[]string{p.event.WorkerID},
+				[]string{event.WorkerID},
 			); rerr != nil {
 				log.Printf(
-					"error deleting pods for pipeline \"%s\": %s",
+					"error deleting pods for pipeline %q: %s",
 					pipeline.Name(),
 					rerr,
 				)
 			} else {
 				labelSelector = labelSelector.Add(*workerRequirement)
-				log.Printf("deleting pods \"%s\"", labelSelector.String())
-				if derr := p.kubeClient.CoreV1().Pods(
-					p.project.Kubernetes.Namespace,
+				log.Printf("deleting pods %q", labelSelector.String())
+				if derr := kubeClient.CoreV1().Pods(
+					project.Kubernetes.Namespace,
 				).DeleteCollection(
 					&metav1.DeleteOptions{},
 					metav1.ListOptions{
@@ -112,7 +70,7 @@ func (p *pipelineExecutor) executePipeline(
 					},
 				); derr != nil {
 					log.Printf(
-						"error deleting pods for pipeline \"%s\": %s",
+						"error deleting pods for pipeline %q: %s",
 						pipeline.Name(),
 						derr,
 					)
@@ -122,16 +80,17 @@ func (p *pipelineExecutor) executePipeline(
 		}
 
 		// Clean up the shared storage
-		log.Printf("destroying shared storage for pipeline \"%s\"", pipeline.Name())
-		if derr := p.destroySrcPVC(pipeline.Name()); derr != nil {
+		log.Printf("destroying shared storage for pipeline %q", pipeline.Name())
+		if derr :=
+			destroySrcPVC(project, event, pipeline.Name(), kubeClient); derr != nil {
 			log.Printf(
-				"error destroying shared storage for pipeline \"%s\": %s",
+				"error destroying shared storage for pipeline %q: %s",
 				pipeline.Name(),
 				derr,
 			)
 		} else {
 			log.Printf(
-				"destroyed shared storage for pipeline \"%s\"",
+				"destroyed shared storage for pipeline %q",
 				pipeline.Name(),
 			)
 		}
@@ -140,15 +99,15 @@ func (p *pipelineExecutor) executePipeline(
 
 	// Clone project source to shared storage
 	log.Printf(
-		"cloning source to shared storage for pipeline \"%s\"",
+		"cloning source to shared storage for pipeline %q",
 		pipeline.Name(),
 	)
-	if err =
-		p.runSourceClonePod(ctx, pipeline.Name()); err != nil {
+	err = runSourceClonePod(ctx, project, event, pipeline.Name(), kubeClient)
+	if err != nil {
 		return
 	}
 	log.Printf(
-		"cloned source to shared storage for pipeline \"%s\"",
+		"cloned source to shared storage for pipeline %q",
 		pipeline.Name(),
 	)
 
@@ -185,19 +144,22 @@ func (p *pipelineExecutor) executePipeline(
 					// Continue to wait for the next dependency
 				case <-pendingJobsCtx.Done():
 					// Pending jobs were canceled; abort
-					localErrCh <- &errPendingJobCanceled{job: job.Job().Name()}
+					localErrCh <- &pendingJobCanceledError{job: job.Job().Name()}
 					return
 				case <-ctx.Done():
 					// Everything was canceled; abort
-					localErrCh <- &errPendingJobCanceled{job: job.Job().Name()}
+					localErrCh <- &pendingJobCanceledError{job: job.Job().Name()}
 					return
 				}
 			}
-			if err := p.runJobPod(
+			if err := runJobPod(
 				ctx,
+				project,
+				event,
 				pipeline.Name(),
 				job.Job(),
-				environment,
+				jobStatusNotifier,
+				kubeClient,
 			); err != nil {
 				// This localErrCh write isn't in a select because we don't want it to
 				// be interruptable since we never want to lose an error message. And we

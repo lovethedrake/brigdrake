@@ -1,4 +1,4 @@
-package brigade
+package executor
 
 import (
 	"context"
@@ -7,13 +7,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lovethedrake/brigdrake/pkg/brigade"
+	"github.com/lovethedrake/brigdrake/pkg/drake"
 	"github.com/lovethedrake/drakecore/config"
 	"github.com/mattn/go-shellwords"
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/kubernetes"
 	api "k8s.io/kubernetes/pkg/apis/core"
 )
 
@@ -22,43 +24,127 @@ const (
 	dockerSocketVolumeName = "docker-socket"
 )
 
-func (p *pipelineExecutor) runJobPod(
+func runJobPod(
 	ctx context.Context,
+	project brigade.Project,
+	event brigade.Event,
 	pipelineName string,
 	job config.Job,
-	environment []string,
+	jobStatusNotifier drake.JobStatusNotifier,
+	kubeClient kubernetes.Interface,
 ) error {
-	if p.jobStatusNotifier != nil {
-		if err := p.jobStatusNotifier.SendInProgressNotification(job); err != nil {
+	var err error
+	if jobStatusNotifier != nil {
+		if err = jobStatusNotifier.SendInProgressNotification(job); err != nil {
+			return err
+		}
+		defer func() {
+			jsnFn := jobStatusNotifier.SendFailureNotification
+			select {
+			case <-ctx.Done():
+				jsnFn = jobStatusNotifier.SendCancelledNotification
+			default:
+				if err == nil {
+					jsnFn = jobStatusNotifier.SendSuccessNotification
+				} else if _, ok := err.(*timedOutError); ok {
+					jsnFn = jobStatusNotifier.SendTimedOutNotification
+				}
+			}
+			if err = jsnFn(job); err != nil {
+				log.Printf("error sending job status notification: %s", err)
+			}
+		}()
+	}
+
+	// TODO: Let's not define the values for these in two places.
+	jobName := fmt.Sprintf("%s-%s", pipelineName, job.Name())
+	podName := fmt.Sprintf("%s-%s", jobName, event.BuildID)
+
+	var pod *v1.Pod
+	pod, err = buildJobPod(project, event, pipelineName, job)
+
+	if _, err = kubeClient.CoreV1().Pods(
+		project.Kubernetes.Namespace,
+	).Create(pod); err != nil {
+		err = errors.Wrapf(err, "error creating pod %q", podName)
+		return err
+	}
+
+	return waitForJobPodCompletion(
+		ctx,
+		project.Kubernetes.Namespace,
+		jobName,
+		podName,
+		10*time.Minute, // TODO: This probably shouldn't be hardcoded
+		kubeClient,
+	)
+}
+
+func waitForJobPodCompletion(
+	ctx context.Context,
+	namespace string,
+	jobName string,
+	podName string,
+	timeout time.Duration,
+	kubeClient kubernetes.Interface,
+) error {
+	podsWatcher, err := kubeClient.CoreV1().Pods(namespace).Watch(
+		metav1.ListOptions{
+			FieldSelector: fields.OneTermEqualSelector(
+				api.ObjectNameField,
+				podName,
+			).String(),
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	// Timeout
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+
+	for {
+		select {
+		case event := <-podsWatcher.ResultChan():
+			pod, ok := event.Object.(*v1.Pod)
+			if !ok {
+				err = errors.Errorf(
+					"received unexpected object when watching pod %q for completion",
+					podName,
+				)
+				return err
+			}
+			for _, containerStatus := range pod.Status.ContainerStatuses {
+				if containerStatus.Name == pod.Spec.Containers[0].Name {
+					if containerStatus.State.Terminated != nil {
+						if containerStatus.State.Terminated.Reason == "Completed" {
+							return nil
+						}
+						err = errors.Errorf("pod %q failed", podName)
+						return err
+					}
+					break
+				}
+			}
+		case <-timer.C:
+			err = &timedOutError{job: jobName}
+			return err
+		case <-ctx.Done():
+			err = &inProgressJobAbortedError{job: jobName}
 			return err
 		}
 	}
+}
 
+func buildJobPod(
+	project brigade.Project,
+	event brigade.Event,
+	pipelineName string,
+	job config.Job,
+) (*v1.Pod, error) {
 	jobName := fmt.Sprintf("%s-%s", pipelineName, job.Name())
-	podName := fmt.Sprintf("%s-%s", jobName, p.event.BuildID)
-
-	var err error
-
-	defer func() {
-		// Ensure notification, if applicable
-		if p.jobStatusNotifier != nil {
-			jsnFunc := p.jobStatusNotifier.SendFailureNotification
-			select {
-			case <-ctx.Done():
-				jsnFunc = p.jobStatusNotifier.SendCancelledNotification
-			default:
-				if err == nil {
-					jsnFunc = p.jobStatusNotifier.SendSuccessNotification
-				} else if _, ok := err.(*timedOutError); ok {
-					jsnFunc = p.jobStatusNotifier.SendTimedOutNotification
-				}
-			}
-			if nerr := jsnFunc(job); nerr != nil {
-				log.Printf("error sending job status notification: %s", nerr)
-			}
-		}
-	}()
-
+	podName := fmt.Sprintf("%s-%s", jobName, event.BuildID)
 	pod := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: podName,
@@ -66,9 +152,9 @@ func (p *pipelineExecutor) runJobPod(
 				"heritage":             "brigade",
 				"component":            "job",
 				"jobname":              jobName,
-				"project":              p.project.ID,
-				"worker":               p.event.WorkerID,
-				"build":                p.event.BuildID,
+				"project":              project.ID,
+				"worker":               event.WorkerID,
+				"build":                event.BuildID,
 				"thedrake.io/pipeline": pipelineName,
 				"thedrake.io/job":      job.Name(),
 			},
@@ -80,7 +166,7 @@ func (p *pipelineExecutor) runJobPod(
 					Name: srcVolumeName,
 					VolumeSource: v1.VolumeSource{
 						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-							ClaimName: srcPVCName(p.event.WorkerID, pipelineName),
+							ClaimName: srcPVCName(event.WorkerID, pipelineName),
 						},
 					},
 				},
@@ -95,32 +181,29 @@ func (p *pipelineExecutor) runJobPod(
 			},
 		},
 	}
-
 	pod.Spec.ImagePullSecrets =
-		make([]v1.LocalObjectReference, len(p.project.Kubernetes.ImagePullSecrets))
-	for i, imagePullSecret := range p.project.Kubernetes.ImagePullSecrets {
+		make([]v1.LocalObjectReference, len(project.Kubernetes.ImagePullSecrets))
+	for i, imagePullSecret := range project.Kubernetes.ImagePullSecrets {
 		pod.Spec.ImagePullSecrets[i] = v1.LocalObjectReference{
 			Name: imagePullSecret,
 		}
 	}
-
-	var mainContainerName string
 	containers := job.Containers()
 	pod.Spec.Containers = make([]v1.Container, len(containers))
 	for i, container := range containers {
-		var jobPodContainer v1.Container
-		jobPodContainer, err = p.getJobPodContainer(
+		jobPodContainer, err := buildJobPodContainer(
+			project,
+			event,
 			container,
-			environment,
 		)
 		if err != nil {
 			err = errors.Wrapf(
 				err,
-				"error building container spec for container \"%s\" of job \"%s\"",
+				"error building container spec for container %q of job %q",
 				container.Name(),
 				job.Name(),
 			)
-			return err
+			return nil, err
 		}
 		// We'll treat all but the last container as sidecars. i.e. The last
 		// container in the job should be container 0 in the pod spec.
@@ -131,83 +214,27 @@ func (p *pipelineExecutor) runJobPod(
 			continue
 		}
 		// This is the primary container. Make it the first (0th) in the pod spec.
-		mainContainerName = container.Name()
 		pod.Spec.Containers[0] = jobPodContainer
 	}
-
-	if _, err = p.kubeClient.CoreV1().Pods(
-		p.project.Kubernetes.Namespace,
-	).Create(pod); err != nil {
-		err = errors.Wrapf(err, "error creating pod \"%s\"", podName)
-		return err
-	}
-
-	var podsWatcher watch.Interface
-	if podsWatcher, err =
-		p.kubeClient.CoreV1().Pods(p.project.Kubernetes.Namespace).Watch(
-			metav1.ListOptions{
-				FieldSelector: fields.OneTermEqualSelector(
-					api.ObjectNameField,
-					podName,
-				).String(),
-			},
-		); err != nil {
-		return err
-	}
-
-	// Timeout
-	// TODO: This probably should not be hard-coded
-	timer := time.NewTimer(10 * time.Minute)
-	defer timer.Stop()
-
-	for {
-		select {
-		case event := <-podsWatcher.ResultChan():
-			pod, ok := event.Object.(*v1.Pod)
-			if !ok {
-				err = errors.Errorf(
-					"received unexpected object when watching pod \"%s\" for completion",
-					podName,
-				)
-				return err
-			}
-			for _, containerStatus := range pod.Status.ContainerStatuses {
-				if containerStatus.Name == mainContainerName {
-					if containerStatus.State.Terminated != nil {
-						if containerStatus.State.Terminated.Reason == "Completed" {
-							return nil
-						}
-						err = errors.Errorf("pod \"%s\" failed", podName)
-						return err
-					}
-					break
-				}
-			}
-		case <-timer.C:
-			err = &timedOutError{job: job.Name()}
-			return err
-		case <-ctx.Done():
-			err = &errInProgressJobAborted{job: job.Name()}
-			return err
-		}
-	}
+	return pod, nil
 }
 
-func (p *pipelineExecutor) getJobPodContainer(
+func buildJobPodContainer(
+	project brigade.Project,
+	event brigade.Event,
 	container config.Container,
-	environment []string,
 ) (v1.Container, error) {
 	privileged := container.Privileged()
-	if privileged && !p.project.AllowPrivilegedJobs {
+	if privileged && !project.AllowPrivilegedJobs {
 		return v1.Container{}, errors.Errorf(
-			"container \"%s\" requested to be privileged, but privileged jobs are "+
+			"container %q requested to be privileged, but privileged jobs are "+
 				"not permitted by this project",
 			container.Name(),
 		)
 	}
-	if container.MountDockerSocket() && !p.project.AllowHostMounts {
+	if container.MountDockerSocket() && !project.AllowHostMounts {
 		return v1.Container{}, errors.Errorf(
-			"container \"%s\" requested to mount the docker socket, but host "+
+			"container %q requested to mount the docker socket, but host "+
 				"mounts are not permitted by this project",
 			container.Name(),
 		)
@@ -216,9 +243,6 @@ func (p *pipelineExecutor) getJobPodContainer(
 	if err != nil {
 		return v1.Container{}, err
 	}
-	env := make([]string, len(environment))
-	copy(env, environment)
-	env = append(env, container.Environment()...)
 	c := v1.Container{
 		Name:            container.Name(),
 		Image:           container.Image(),
@@ -232,7 +256,7 @@ func (p *pipelineExecutor) getJobPodContainer(
 		Stdin:        container.TTY(),
 		TTY:          container.TTY(),
 	}
-	for k := range p.project.Secrets {
+	for k := range project.Secrets {
 		c.Env = append(
 			c.Env,
 			v1.EnvVar{
@@ -240,7 +264,7 @@ func (p *pipelineExecutor) getJobPodContainer(
 				ValueFrom: &v1.EnvVarSource{
 					SecretKeyRef: &v1.SecretKeySelector{
 						LocalObjectReference: v1.LocalObjectReference{
-							Name: strings.ToLower(p.event.BuildID),
+							Name: strings.ToLower(event.BuildID),
 						},
 						Key: k,
 					},
@@ -248,7 +272,7 @@ func (p *pipelineExecutor) getJobPodContainer(
 			},
 		)
 	}
-	for _, kv := range env {
+	for _, kv := range container.Environment() {
 		kvTokens := strings.SplitN(kv, "=", 2)
 		if len(kvTokens) == 2 {
 			c.Env = append(

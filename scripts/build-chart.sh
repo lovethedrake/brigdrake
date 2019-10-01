@@ -6,7 +6,7 @@ set -euo pipefail
 
 source scripts/versioning.sh
 
-if [ "$rel_version" == "edge" ]; then
+if [ "$rel_version" == "edge" ] || [ "$rel_version" == "unstable" ]; then
   chart_version=0.0.1-$(date -u +"%Y.%m.%d.%H.%M.%S")-$git_version
   app_version=$git_version
 else

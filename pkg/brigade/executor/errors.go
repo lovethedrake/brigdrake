@@ -1,4 +1,4 @@
-package brigade
+package executor
 
 import "fmt"
 
@@ -22,18 +22,18 @@ func (t *timedOutError) Error() string {
 	return fmt.Sprintf("timed out waiting for job %q to complete", t.job)
 }
 
-type errPendingJobCanceled struct {
+type pendingJobCanceledError struct {
 	job string
 }
 
-func (e *errPendingJobCanceled) Error() string {
-	return fmt.Sprintf("pending job %q canceled", e.job)
+func (p *pendingJobCanceledError) Error() string {
+	return fmt.Sprintf("pending job %q canceled", p.job)
 }
 
-type errInProgressJobAborted struct {
+type inProgressJobAbortedError struct {
 	job string
 }
 
-func (e *errInProgressJobAborted) Error() string {
-	return fmt.Sprintf("in-progress job %q aborted", e.job)
+func (i *inProgressJobAbortedError) Error() string {
+	return fmt.Sprintf("in-progress job %q aborted", i.job)
 }
