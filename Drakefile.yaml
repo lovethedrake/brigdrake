@@ -45,6 +45,11 @@ jobs:
     - <<: *baseGoContainer
       command: go test -timeout 30s -race -coverprofile=coverage.txt -covermode=atomic ./cmd/... ./pkg/...
 
+  upload-coverage-report:
+    containers:
+    - <<: *baseGoContainer
+      command: bash -c "bash <(curl -s https://codecov.io/bash)"
+
   lint:
     containers:
     - <<: *baseGoContainer
@@ -123,6 +128,9 @@ pipelines:
     - name: lint
     - name: verify-vendored-code
     - name: test-unit
+    - name: upload-coverage-report
+      dependencies:
+      - test-unit
     - name: lint-chart
     - name: build-worker-dind
       dependencies:

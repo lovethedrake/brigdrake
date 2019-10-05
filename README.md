@@ -1,5 +1,7 @@
 # brigdrake
 
+[![codecov](https://codecov.io/gh/lovethedrake/brigdrake/branch/master/graph/badge.svg)](https://codecov.io/gh/lovethedrake/brigdrake)
+
 __brigdrake__ provides Drake pipeline support for
 [Brigade](https://brigade.sh/).
 
