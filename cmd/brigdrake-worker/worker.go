@@ -4,6 +4,7 @@ import (
 	"log"
 
 	"github.com/lovethedrake/brigdrake/pkg/brigade"
+	"github.com/lovethedrake/brigdrake/pkg/brigade/executor"
 	"github.com/lovethedrake/brigdrake/pkg/signals"
 	"github.com/lovethedrake/brigdrake/pkg/version"
 	"k8s.io/client-go/kubernetes"
@@ -42,18 +43,14 @@ func main() {
 		log.Fatal(err)
 	}
 
-	buildExecutor, err := brigade.NewBuildExecutor(
+	ctx := signals.Context()
+	if err = executor.ExecuteBuild(
+		ctx,
 		project,
 		event,
 		workerConfig,
 		kubeClient,
-	)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	ctx := signals.Context()
-	if err = buildExecutor.ExecuteBuild(ctx); err != nil {
+	); err != nil {
 		log.Fatal(err)
 	}
 }
