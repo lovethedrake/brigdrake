@@ -2,6 +2,14 @@
 
 
 [[projects]]
+  digest = "1:d37f34e1e231ee4b8657d1b6153e2696b1d7341850f648f5d78151d3bc1f677b"
+  name = "github.com/Masterminds/semver"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "fe7c21038085e01e67044ec1efe3afb1eaa59f75"
+  version = "v3.0.1"
+
+[[projects]]
   digest = "1:ffe9824d294da03b391f44e1ae8281281b4afc1bdaa9588c9097785e3af10cec"
   name = "github.com/davecgh/go-spew"
   packages = ["spew"]
@@ -99,12 +107,12 @@
   version = "v1.4.0"
 
 [[projects]]
-  digest = "1:3507f97fde0fbcbf387d7e7b8260448db0a79b05b79ccd55fef7c7257005df86"
+  digest = "1:03a35dbb79642a7e0525ecd9218ed761741438406022e36f8012fef928960c78"
   name = "github.com/lovethedrake/drakecore"
   packages = ["config"]
   pruneopts = "UT"
-  revision = "bd3a881a3f8755220187fdfb2b1b7832ad3be67f"
-  version = "v0.4.0"
+  revision = "2a9210bcad64c8dd5a2470cfcfd4d6b325abc865"
+  version = "v0.5.1"
 
 [[projects]]
   digest = "1:a310b34fdb4af778ac92cdc961165fa4d994ea9753c3da99bd9e5285b94cde6a"
