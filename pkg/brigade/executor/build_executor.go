@@ -40,7 +40,7 @@ func ExecuteBuild(
 	for _, pipeline := range cfg.AllPipelines() {
 		log.Printf("evaluating triggers for pipeline %q", pipeline.Name())
 		for i, pipelineTrigger := range pipeline.Triggers() {
-			triggerBuilderFn, ok := triggerBuilderFns[pipelineTrigger.Spec().URI()]
+			triggerBuilderFn, ok := triggerBuilderFns[pipelineTrigger.SpecURI()]
 			if !ok {
 				// Don't know what to do with this trigger...
 				continue // Next trigger
@@ -51,7 +51,7 @@ func ExecuteBuild(
 					err,
 					"error parsing trigger %d (%q) configuration for pipeline %q",
 					i,
-					pipelineTrigger.Spec().URI(),
+					pipelineTrigger.SpecURI(),
 					pipeline.Name(),
 				)
 			}
@@ -62,7 +62,7 @@ func ExecuteBuild(
 					"error evaluating execution criteria for trigger %d (%q) "+
 						"configuration for pipeline %q",
 					i,
-					pipelineTrigger.Spec().URI(),
+					pipelineTrigger.SpecURI(),
 					pipeline.Name(),
 				)
 			}
@@ -74,7 +74,7 @@ func ExecuteBuild(
 						"error obtaining job status notifier for trigger %d (%q) "+
 							"configuration for pipeline %q",
 						i,
-						pipelineTrigger.Spec().URI(),
+						pipelineTrigger.SpecURI(),
 						pipeline.Name(),
 					)
 				}
