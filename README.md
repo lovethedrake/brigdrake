@@ -1,27 +1,27 @@
-# brigdrake
+# BrigDrake
 
 [![codecov](https://codecov.io/gh/lovethedrake/brigdrake/branch/master/graph/badge.svg)](https://codecov.io/gh/lovethedrake/brigdrake)
 
-__brigdrake__ provides Drake pipeline support for
+__BrigDrake__ provides Drake pipeline support for
 [Brigade](https://brigade.sh/).
 
 ## THIS PROJECT HIGHLY VOLATILE!
 
 brigdrake implements the highly volatile
-[drakespec](https://github.com/lovethedrake/drakespec) and, as such is, itself,
+[DrakeSpec](https://github.com/lovethedrake/drakespec) and, as such is, itself,
 highly volatile. Users are warned that breaking changes to this software are
 likely at any point up until its eventual 1.0 release.
 
 # Installation
 
-Currently, brigdrake recommends creating a _new_ Brigade instance that is
+Currently, BrigDrake recommends creating a _new_ Brigade instance that is
 separate from any existing Brigade instance you may already have. This is
-because brigdrake requires specific Brigade configuration that would not be
+because BrigDrake requires specific Brigade configuration that would not be
 conducive to building traditional, `brigade.js`-based Brigade projects.
 
-The brigdrake installation process is somewhat involved, but this is owed to the
+The BrigDrake installation process is somewhat involved, but this is owed to the
 complexity of creating a new GitHub App and isn't attributable to Brigade or
-brigdrake itself.
+BrigDrake itself.
 
 The installation process takes this general shape:
 
@@ -34,7 +34,7 @@ The next few sections cover each of these in greater detail.
 
 ## Prerequisites
 
-This documentation assumes you're installing brigdrake into a Kuberntes cluster
+This documentation assumes you're installing BrigDrake into a Kuberntes cluster
 that is capable of provisioning internet-facing load balancers. i.e. It is
 easiest to follow along using a cluster deployed to one of the public clouds.
 
@@ -70,7 +70,7 @@ $ kubectl get service brigdrake-brigade-github-app -n brigdrake
 ## Create a GitHub "App"
 
 Proceed to the settings page for the GitHub user or organization that owns the
-repositories you wish to build using brigdrake. A menu on the left should
+repositories you wish to build using BrigDrake. A menu on the left should
 contain a __Developer settings__ sub-section. The options in that section may
 be different depending on whether you're viewing settings for a user or an
 organization, but in either case, drill down into this section until you find
@@ -124,11 +124,11 @@ is a different thing.)
        You cannot retrieve the key later; you can only replace it with a new
        one.__
 
-## Update the brigdrake Installation
+## Update the BrigDrake Installation
 
 Now that the GitHub App has been created, GitHub users, GitHub organizations, or
 individual GitHub repositories that install/enable that app will securely
-transmit events to brigdrake's `brigade-github-app` gateway. This gateway,
+transmit events to BrigDrake's `brigade-github-app` gateway. This gateway,
 requires some re-configuration with details from the previous section in order
 to decrypt those secure payloads.
 
@@ -203,11 +203,11 @@ $ helm upgrade brigdrake brigdrake/brigdrake --values my-brigdrake-values.yaml
 
 After following all the installation instructions, GitHub users, GitHub
 organizations, or individual GitHub repositories that install/enable the GitHub
-App will securely transmit events to your installation of brigdrake.
+App will securely transmit events to your installation of BrigDrake.
 
-Ultimately, brigdrake is just __Brigade__ pre-configured with Drake pipeline
+Ultimately, BrigDrake is just __Brigade__ pre-configured with Drake pipeline
 support, so a Brigade project must be created for any project you wish to build
-using brigdrake. Absent corresponding project configuration, Brigade (and thus,
+using BrigDrake. Absent corresponding project configuration, Brigade (and thus,
 brigdrake) will not respond to any of the events it receives.
 
 To create a Brigade project, use the `brig` tool. Pre-built binaries for common
@@ -229,11 +229,11 @@ Drake pipelines according to triggers defined in the project's `Drakefile.yaml`.
 For an example `Drakefile.yaml`, refer to the
 [brigdrake-demo](https://github.com/lovethedrake/brigdrake-demo) project. If
 desired, you can fork that repository and push commits to the fork to see
-brigdrake in action.
+BrigDrake in action.
 
-Once triggered, a Drake pipeline built by brigdrake is little different from any
+Once triggered, a Drake pipeline built by BrigDrake is little different from any
 typical Brigade build. All knowledge of Brigade and associated tools carries
-over to brigdrake.
+over to BrigDrake.
 
 These instructions count a complete overview of Brigade as out of scope, but do
 check out Kashti (the Brigade UI) to see events and the builds and pipeline
@@ -245,13 +245,13 @@ $ kubectl get service brigdrake-kashti -n brigdrake
 
 ## Limitations
 
-At present, brigdrake only integrates with GitHub. i.e. Pipeline execution can
+At present, BrigDrake only integrates with GitHub. i.e. Pipeline execution can
 only be triggered, at this time, by events emitted by GitHub and received by
 Brigade via the
 [brigade-github-app](https://github.com/brigadecore/brigade-github-app) gateway.
 
-Anticipate this to changing (in the near future) as both the brigdrake project
-and the [drakespec](https://github.com/lovethedrake/drakespec) mature.
+This may change in the near future as both the BrigDrake project and the
+[DrakeSpec](https://github.com/lovethedrake/drakespec) mature.
 
 ## Contributing
 

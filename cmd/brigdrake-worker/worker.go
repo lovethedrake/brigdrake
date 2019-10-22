@@ -14,7 +14,7 @@ import (
 func main() {
 
 	log.Printf(
-		"Starting brigdrake worker -- version %s -- commit %s",
+		"Starting BrigDrake worker -- version %s -- commit %s",
 		version.Version(),
 		version.Commit(),
 	)
