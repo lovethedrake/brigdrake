@@ -1,25 +1,27 @@
 specUri: github.com/lovethedrake/drakespec
 specVersion: v0.1.0
 
-baseGoContainer: &baseGoContainer
-  name: go
-  image: quay.io/deis/lightweight-docker-go:v0.7.0
-  sourceMountPath: /go/src/github.com/lovethedrake/brigdrake
-  workingDirectory: /go/src/github.com/lovethedrake/brigdrake
-  tty: true
+snippets:
 
-baseDindContainer: &baseDindContainer
-  name: dind
-  image: krancour/dind:18.09.5
-  sourceMountPath: /brigdrake
-  workingDirectory: /brigdrake
-  privileged: true
+  baseGoContainer: &baseGoContainer
+    name: go
+    image: quay.io/deis/lightweight-docker-go:v0.7.0
+    sourceMountPath: /go/src/github.com/lovethedrake/brigdrake
+    workingDirectory: /go/src/github.com/lovethedrake/brigdrake
+    tty: true
 
-baseHelmContainer: &baseHelmContainer
-  name: helm
-  image: dtzar/helm-kubectl:2.14.1
-  sourceMountPath: /brigdrake
-  workingDirectory: /brigdrake
+  baseDindContainer: &baseDindContainer
+    name: dind
+    image: krancour/dind:18.09.5
+    sourceMountPath: /brigdrake
+    workingDirectory: /brigdrake
+    privileged: true
+
+  baseHelmContainer: &baseHelmContainer
+    name: helm
+    image: dtzar/helm-kubectl:2.14.1
+    sourceMountPath: /brigdrake
+    workingDirectory: /brigdrake
 
 jobs:
 
