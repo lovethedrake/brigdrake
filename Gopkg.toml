@@ -24,11 +24,6 @@
 #   go-tests = true
 #   unused-packages = true
 
-
-[[constraint]]
-  name = "github.com/brigadecore/brigade-github-app"
-  version = "0.1.0"
-
 [[constraint]]
   name = "github.com/google/go-github"
   version = "18.2.0"
