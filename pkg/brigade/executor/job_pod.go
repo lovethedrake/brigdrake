@@ -20,8 +20,9 @@ import (
 )
 
 const (
-	srcVolumeName          = "src"
-	dockerSocketVolumeName = "docker-socket"
+	sourceVolumeName        = "source"
+	sharedStorageVolumeName = "shared-storage"
+	dockerSocketVolumeName  = "docker-socket"
 )
 
 func runJobPod(
@@ -161,26 +162,76 @@ func buildJobPod(
 		},
 		Spec: v1.PodSpec{
 			RestartPolicy: v1.RestartPolicyNever,
-			Volumes: []v1.Volume{
-				{
-					Name: srcVolumeName,
-					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-							ClaimName: srcPVCName(event.WorkerID, pipelineName),
-						},
-					},
+			Volumes:       []v1.Volume{},
+		},
+	}
+
+	// All the volumes we will need
+	var jobUsesSource bool
+	var jobUsesSharedStorage bool
+	var jobUsessDockerSocket bool
+	for _, container := range job.Containers() {
+		if container.SourceMountPath() != "" {
+			jobUsesSource = true
+		}
+		if container.SharedStorageMountPath() != "" {
+			jobUsesSharedStorage = true
+		}
+		if container.MountDockerSocket() {
+			jobUsessDockerSocket = true
+		}
+	}
+	if jobUsesSource {
+		pod.Spec.Volumes = append(
+			pod.Spec.Volumes,
+			v1.Volume{
+				Name: sourceVolumeName,
+				VolumeSource: v1.VolumeSource{
+					EmptyDir: &v1.EmptyDirVolumeSource{},
 				},
-				{
-					Name: dockerSocketVolumeName,
-					VolumeSource: v1.VolumeSource{
-						HostPath: &v1.HostPathVolumeSource{
-							Path: "/var/run/docker.sock",
-						},
+			},
+		)
+	}
+	if jobUsesSharedStorage {
+		pod.Spec.Volumes = append(
+			pod.Spec.Volumes,
+			v1.Volume{
+				Name: sharedStorageVolumeName,
+				VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						ClaimName: sharedStoragePVCName(event.WorkerID, pipelineName),
 					},
 				},
 			},
-		},
+		)
 	}
+	if jobUsessDockerSocket {
+		pod.Spec.Volumes = append(
+			pod.Spec.Volumes,
+			v1.Volume{
+				Name: dockerSocketVolumeName,
+				VolumeSource: v1.VolumeSource{
+					HostPath: &v1.HostPathVolumeSource{
+						Path: "/var/run/docker.sock",
+					},
+				},
+			},
+		)
+	}
+
+	// If needed, use an init container for fetching source
+	if jobUsesSource {
+		sourceCloneContainer, err := buildSourceCloneContainer(project, event)
+		if err != nil {
+			err = errors.Wrap(
+				err,
+				"error building container spec for source clone init container",
+			)
+			return nil, err
+		}
+		pod.Spec.InitContainers = []v1.Container{sourceCloneContainer}
+	}
+
 	pod.Spec.ImagePullSecrets =
 		make([]v1.LocalObjectReference, len(project.Kubernetes.ImagePullSecrets))
 	for i, imagePullSecret := range project.Kubernetes.ImagePullSecrets {
@@ -188,6 +239,7 @@ func buildJobPod(
 			Name: imagePullSecret,
 		}
 	}
+
 	containers := job.Containers()
 	pod.Spec.Containers = make([]v1.Container, len(containers))
 	for i, container := range containers {
@@ -195,6 +247,7 @@ func buildJobPod(
 			project,
 			event,
 			container,
+			job.SourceMountMode(),
 		)
 		if err != nil {
 			err = errors.Wrapf(
@@ -223,6 +276,7 @@ func buildJobPodContainer(
 	project brigade.Project,
 	event brigade.Event,
 	container config.Container,
+	sourceMountMode config.SourceMountMode,
 ) (v1.Container, error) {
 	privileged := container.Privileged()
 	if privileged && !project.AllowPrivilegedJobs {
@@ -297,13 +351,23 @@ func buildJobPodContainer(
 		c.VolumeMounts = append(
 			c.VolumeMounts,
 			v1.VolumeMount{
-				Name:      srcVolumeName,
+				Name:      sourceVolumeName,
 				MountPath: container.SourceMountPath(),
+				ReadOnly:  sourceMountMode == config.SourceMountModeReadOnly,
 			},
 		)
 	}
 	if container.WorkingDirectory() != "" {
 		c.WorkingDir = container.WorkingDirectory()
+	}
+	if container.SharedStorageMountPath() != "" {
+		c.VolumeMounts = append(
+			c.VolumeMounts,
+			v1.VolumeMount{
+				Name:      sharedStorageVolumeName,
+				MountPath: container.SharedStorageMountPath(),
+			},
+		)
 	}
 	if container.MountDockerSocket() {
 		c.VolumeMounts = append(

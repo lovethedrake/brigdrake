@@ -33,6 +33,7 @@ jobs:
     containers:
     - <<: *baseGoContainer
       command: dep ensure -v
+    sourceMountMode: RW
 
 ################################################################################
 # Test jobs                                                                    #
@@ -46,12 +47,14 @@ jobs:
   test-unit:
     containers:
     - <<: *baseGoContainer
-      command: go test -timeout 30s -race -coverprofile=coverage.txt -covermode=atomic ./cmd/... ./pkg/...
+      command: go test -timeout 30s -race -coverprofile=/shared/coverage.txt -covermode=atomic ./cmd/... ./pkg/...
+      sharedStorageMountPath: /shared
 
   upload-coverage-report:
     containers:
     - <<: *baseGoContainer
-      command: bash -c "bash <(curl -s https://codecov.io/bash)"
+      command: bash -c "bash <(curl -s https://codecov.io/bash) -f /shared/coverage.txt"
+      sharedStorageMountPath: /shared
 
   lint:
     containers:
@@ -98,6 +101,8 @@ jobs:
     containers:
     - <<: *baseHelmContainer
       command: scripts/build-chart.sh
+      sharedStorageMountPath: /shared
+    sourceMountMode: COPY
 
   publish-chart:
     containers:
@@ -106,6 +111,7 @@ jobs:
       sourceMountPath: /brigdrake
       workingDirectory: /brigdrake
       command: scripts/publish-chart.sh
+      sharedStorageMountPath: /shared
 
 ################################################################################
 # Pipelines                                                                    #

@@ -12,14 +12,14 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-func createSrcPVC(
+func createSharedStoragePVC(
 	project brigade.Project,
 	event brigade.Event,
 	workerConfig brigade.WorkerConfig,
 	pipelineName string,
 	kubeClient kubernetes.Interface,
 ) error {
-	pvc, err := buildSrcPVC(project, event, workerConfig, pipelineName)
+	pvc, err := buildSharedStoragePVC(project, event, workerConfig, pipelineName)
 	if err != nil {
 		return err
 	}
@@ -36,7 +36,7 @@ func createSrcPVC(
 	return nil
 }
 
-func buildSrcPVC(
+func buildSharedStoragePVC(
 	project brigade.Project,
 	event brigade.Event,
 	workerConfig brigade.WorkerConfig,
@@ -54,7 +54,7 @@ func buildSrcPVC(
 	}
 	pvc := &v1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: srcPVCName(event.WorkerID, pipelineName),
+			Name: sharedStoragePVCName(event.WorkerID, pipelineName),
 			Labels: map[string]string{
 				"heritage":  "brigade",
 				"component": "buildStorage",
@@ -81,7 +81,7 @@ func buildSrcPVC(
 	return pvc, nil
 }
 
-func destroySrcPVC(
+func destroySharedStoragePVC(
 	project brigade.Project,
 	event brigade.Event,
 	pipelineName string,
@@ -90,7 +90,7 @@ func destroySrcPVC(
 	if err := kubeClient.CoreV1().PersistentVolumeClaims(
 		project.Kubernetes.Namespace,
 	).Delete(
-		srcPVCName(event.WorkerID, pipelineName),
+		sharedStoragePVCName(event.WorkerID, pipelineName),
 		&metav1.DeleteOptions{},
 	); err != nil {
 		return errors.Wrapf(
@@ -102,10 +102,10 @@ func destroySrcPVC(
 	return nil
 }
 
-// srcPVCName permits all callers who need to reference the source PVC by name
-// to reliably use the correct name as long as they have the workerID and
-// pipelineName.
-func srcPVCName(workerID, pipelineName string) string {
+// sharedStoragePVCName permits all callers who need to reference the shared
+// storage PVC by name to reliably use the correct name as long as they have the
+// workerID and pipelineName.
+func sharedStoragePVCName(workerID, pipelineName string) string {
 	workerIDLower := strings.ToLower(workerID)
 	pipelineNameLower := strings.ToLower(pipelineName)
 	return fmt.Sprintf("%s-%s", workerIDLower, pipelineNameLower)

@@ -28,20 +28,35 @@ func executePipeline(
 	defer wg.Done()
 	log.Printf("executing pipeline %q", pipeline.Name())
 
-	log.Printf("creating shared storage for pipeline %q", pipeline.Name())
-	var err error
-	if err = createSrcPVC(
-		project,
-		event,
-		workerConfig,
-		pipeline.Name(),
-		kubeClient,
-	); err != nil {
-		errCh <- err
-		return
+	// If ANY of the pipeline's jobs' containers mounts shared storage, we need to
+	// create a volume.
+	var pipelineNeedsSharedStorage bool
+jobsLoop:
+	for _, pipelineJob := range pipeline.Jobs() {
+		for _, container := range pipelineJob.Job().Containers() {
+			if container.SharedStorageMountPath() != "" {
+				pipelineNeedsSharedStorage = true
+				break jobsLoop
+			}
+		}
+	}
+	if pipelineNeedsSharedStorage {
+		log.Printf("creating shared storage for pipeline %q", pipeline.Name())
+		var err error
+		if err = createSharedStoragePVC(
+			project,
+			event,
+			workerConfig,
+			pipeline.Name(),
+			kubeClient,
+		); err != nil {
+			errCh <- err
+			return
+		}
+		log.Printf("created shared storage for pipeline %q", pipeline.Name())
 	}
 
-	log.Printf("created shared storage for pipeline %q", pipeline.Name())
+	var err error
 	defer func() {
 		// If context was canceled, we have a bunch of job pods to get rid of that
 		// we'd like to keep otherwise.
@@ -79,37 +94,29 @@ func executePipeline(
 		default:
 		}
 
-		// Clean up the shared storage
-		log.Printf("destroying shared storage for pipeline %q", pipeline.Name())
-		if derr :=
-			destroySrcPVC(project, event, pipeline.Name(), kubeClient); derr != nil {
-			log.Printf(
-				"error destroying shared storage for pipeline %q: %s",
+		// Clean up the shared storage if there is any
+		if pipelineNeedsSharedStorage {
+			log.Printf("destroying shared storage for pipeline %q", pipeline.Name())
+			if derr := destroySharedStoragePVC(
+				project,
+				event,
 				pipeline.Name(),
-				derr,
-			)
-		} else {
-			log.Printf(
-				"destroyed shared storage for pipeline %q",
-				pipeline.Name(),
-			)
+				kubeClient,
+			); derr != nil {
+				log.Printf(
+					"error destroying shared storage for pipeline %q: %s",
+					pipeline.Name(),
+					derr,
+				)
+			} else {
+				log.Printf(
+					"destroyed shared storage for pipeline %q",
+					pipeline.Name(),
+				)
+			}
 		}
 		errCh <- err
 	}()
-
-	// Clone project source to shared storage
-	log.Printf(
-		"cloning source to shared storage for pipeline %q",
-		pipeline.Name(),
-	)
-	err = runSourceClonePod(ctx, project, event, pipeline.Name(), kubeClient)
-	if err != nil {
-		return
-	}
-	log.Printf(
-		"cloned source to shared storage for pipeline %q",
-		pipeline.Name(),
-	)
 
 	jobs := pipeline.Jobs()
 
