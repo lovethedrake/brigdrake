@@ -112,6 +112,7 @@ jobs:
       workingDirectory: /brigdrake
       command: scripts/publish-chart.sh
       sharedStorageMountPath: /shared
+    sourceMountMode: COPY
 
 ################################################################################
 # Pipelines                                                                    #
