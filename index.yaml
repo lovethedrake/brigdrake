@@ -116,6 +116,21 @@ entries:
     - brigdrake-v0.2.0.tgz
     version: v0.2.0
   - apiVersion: v1
+    appVersion: c42e633
+    created: "2019-10-29T21:42:46.372311323Z"
+    description: Brigade pre-configured with Drake support
+    digest: cced2f94bb0564eaf698e778fd71b82dfeaa74e4c56428d59592a5e0c3afae51
+    home: https://github.com/lovethedrake/brigdrake
+    maintainers:
+    - email: kent.rancourt@gmail.com
+      name: Kent Rancourt
+    name: brigdrake
+    sources:
+    - https://github.com/lovethedrake/brigdrake
+    urls:
+    - brigdrake-0.0.1-2019.10.29.21.42.38-c42e633.tgz
+    version: 0.0.1-2019.10.29.21.42.38-c42e633
+  - apiVersion: v1
     appVersion: c6078af
     created: "2019-10-23T20:16:15.698152728Z"
     description: Brigade pre-configured with Drake support
@@ -349,4 +364,4 @@ entries:
     urls:
     - brigdrake-0.0.1-2019.08.06.19.34.04-b49a1e7.tgz
     version: 0.0.1-2019.08.06.19.34.04-b49a1e7
-generated: "2019-10-23T20:22:51.829708652Z"
+generated: "2019-10-29T21:42:46.355057436Z"
