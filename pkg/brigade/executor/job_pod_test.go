@@ -194,10 +194,14 @@ func TestBuildJobPod(t *testing.T) {
 					name: "bar",
 					containers: []config.Container{
 						&fakeContainer{
-							name: "bat",
+							name:                   "bat",
+							sourceMountPath:        "/src",
+							sharedStorageMountPath: "/shared",
 						},
 						&fakeContainer{
-							name: "baz",
+							name:                   "baz",
+							sourceMountPath:        "/src",
+							sharedStorageMountPath: "/shared",
 						},
 					},
 				},
@@ -317,6 +321,7 @@ func TestBuildJobPodContainer(t *testing.T) {
 				testCase.project,
 				event,
 				testCase.containerCfg,
+				config.SourceMountModeReadOnly,
 			)
 			testCase.assertions(t, container, err)
 		})
@@ -324,8 +329,9 @@ func TestBuildJobPodContainer(t *testing.T) {
 }
 
 type fakeJob struct {
-	name       string
-	containers []config.Container
+	name            string
+	containers      []config.Container
+	sourceMountMode config.SourceMountMode
 }
 
 func (f *fakeJob) Name() string {
@@ -336,16 +342,21 @@ func (f *fakeJob) Containers() []config.Container {
 	return f.containers
 }
 
+func (f *fakeJob) SourceMountMode() config.SourceMountMode {
+	return f.sourceMountMode
+}
+
 type fakeContainer struct {
-	name              string
-	image             string
-	environment       []string
-	workingDirectory  string
-	command           string
-	tty               bool
-	privileged        bool
-	mountDockerSocket bool
-	sourceMountPath   string
+	name                   string
+	image                  string
+	environment            []string
+	workingDirectory       string
+	command                string
+	tty                    bool
+	privileged             bool
+	mountDockerSocket      bool
+	sourceMountPath        string
+	sharedStorageMountPath string
 }
 
 func (f *fakeContainer) Name() string {
@@ -382,4 +393,8 @@ func (f *fakeContainer) MountDockerSocket() bool {
 
 func (f *fakeContainer) SourceMountPath() string {
 	return f.sourceMountPath
+}
+
+func (f *fakeContainer) SharedStorageMountPath() string {
+	return f.sharedStorageMountPath
 }

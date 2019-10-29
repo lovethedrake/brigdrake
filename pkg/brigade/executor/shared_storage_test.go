@@ -11,7 +11,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 )
 
-func TestCreatePVC(t *testing.T) {
+func TestCreateSharedStoragePVC(t *testing.T) {
 	project := brigade.Project{
 		Kubernetes: brigade.KubernetesConfig{
 			Namespace:        "test",
@@ -21,11 +21,11 @@ func TestCreatePVC(t *testing.T) {
 	event := brigade.Event{}
 	workerConfig := brigade.WorkerConfig{}
 	kubeClient := fake.NewSimpleClientset()
-	err := createSrcPVC(project, event, workerConfig, "foo", kubeClient)
+	err := createSharedStoragePVC(project, event, workerConfig, "foo", kubeClient)
 	require.NoError(t, err)
 }
 
-func TestBuildSrcPVC(t *testing.T) {
+func TestBuildSharedStoragePVC(t *testing.T) {
 	testCases := []struct {
 		name         string
 		project      brigade.Project
@@ -33,7 +33,7 @@ func TestBuildSrcPVC(t *testing.T) {
 		assertions   func(*testing.T, *v1.PersistentVolumeClaim, error)
 	}{
 		{
-			name: "invalid src storage size",
+			name: "invalid shared storage size",
 			project: brigade.Project{
 				Kubernetes: brigade.KubernetesConfig{
 					Namespace:        testNamespace,
@@ -98,7 +98,7 @@ func TestBuildSrcPVC(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			pvc, err := buildSrcPVC(
+			pvc, err := buildSharedStoragePVC(
 				testCase.project,
 				event,
 				testCase.workerConfig,
@@ -109,7 +109,7 @@ func TestBuildSrcPVC(t *testing.T) {
 	}
 }
 
-func TestDestroySrcPVC(t *testing.T) {
+func TestDestroySharedStoragePVC(t *testing.T) {
 	const pipelineName = "foo"
 	project := brigade.Project{
 		Kubernetes: brigade.KubernetesConfig{
@@ -124,14 +124,14 @@ func TestDestroySrcPVC(t *testing.T) {
 		&v1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: testNamespace,
-				Name:      srcPVCName(event.WorkerID, pipelineName),
+				Name:      sharedStoragePVCName(event.WorkerID, pipelineName),
 			},
 		},
 	)
-	err := destroySrcPVC(project, event, pipelineName, kubeClient)
+	err := destroySharedStoragePVC(project, event, pipelineName, kubeClient)
 	require.NoError(t, err)
 }
 
-func TestSrcPVCName(t *testing.T) {
-	require.Equal(t, "foo-bar", srcPVCName("FOO", "BAR"))
+func TestSharedStoragePVCName(t *testing.T) {
+	require.Equal(t, "foo-bar", sharedStoragePVCName("FOO", "BAR"))
 }

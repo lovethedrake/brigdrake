@@ -17,28 +17,19 @@ fi
 
 set -x
 
-# Clean
-rm -rf chart/build
-rm -rf chart/dist
-
-mkdir chart/build
-mkdir chart/dist
-
-# Copy
-cp -R chart/brigdrake/ chart/build/brigdrake/
-
 # Set version info
-sed -i "s/^appVersion:.*/appVersion: $app_version/" chart/build/brigdrake/Chart.yaml
-sed -i "s/^    tag:.*/    tag: $app_version/" chart/build/brigdrake/values.yaml
+sed -i "s/^appVersion:.*/appVersion: $app_version/" chart/brigdrake/Chart.yaml
+sed -i "s/^    tag:.*/    tag: $app_version/" chart/brigdrake/values.yaml
 
 # Make sure helm and repos containing dependencies are in good working order
 helm init --client-only
 helm repo add brigade https://brigadecore.github.io/charts
 
 # Build!
-helm dep up chart/build/brigdrake
-helm package --version $chart_version -d chart/dist chart/build/brigdrake
+helm dep up chart/brigdrake
+mkdir -p /shared/chart/dist
+helm package --version $chart_version -d /shared/chart/dist chart/brigdrake
 
 # Update index
-curl -o chart/dist/index.yaml https://raw.githubusercontent.com/lovethedrake/brigdrake/gh-pages/index.yaml
-helm repo index --merge chart/dist/index.yaml chart/dist
+curl -o /shared/chart/dist/index.yaml https://raw.githubusercontent.com/lovethedrake/brigdrake/gh-pages/index.yaml
+helm repo index --merge /shared/chart/dist/index.yaml /shared/chart/dist

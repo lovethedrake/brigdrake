@@ -65,7 +65,9 @@ func (f *fakeGithubClient) Do(
 }
 
 type fakeJob struct {
-	name string
+	name            string
+	containers      []config.Container
+	sourceMountMode config.SourceMountMode
 }
 
 func (f *fakeJob) Name() string {
@@ -73,7 +75,11 @@ func (f *fakeJob) Name() string {
 }
 
 func (f *fakeJob) Containers() []config.Container {
-	return nil
+	return f.containers
+}
+
+func (f *fakeJob) SourceMountMode() config.SourceMountMode {
+	return f.sourceMountMode
 }
 
 func TestNewJobStatusNotifier(t *testing.T) {
