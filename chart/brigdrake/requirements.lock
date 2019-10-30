@@ -4,6 +4,6 @@ dependencies:
   version: 0.3.0
 - name: brigade
   repository: https://brigadecore.github.io/charts
-  version: 1.3.0-beta.2
-digest: sha256:64070704681848c0181c3f990bd6bd10452b52f48dd4f4951ba7f2ac8249dde5
-generated: "2019-08-16T19:52:11.502873-04:00"
+  version: 1.3.1
+digest: sha256:2853657210e3386e7acd5750b04e20c77b9a46dd7d0a84c383951a60a4ee2ee5
+generated: "2019-10-30T15:59:21.194369-04:00"
