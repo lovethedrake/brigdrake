@@ -351,7 +351,8 @@ type fakeContainer struct {
 	image                  string
 	environment            []string
 	workingDirectory       string
-	command                string
+	command                []string
+	args                   []string
 	tty                    bool
 	privileged             bool
 	mountDockerSocket      bool
@@ -375,8 +376,12 @@ func (f *fakeContainer) WorkingDirectory() string {
 	return f.workingDirectory
 }
 
-func (f *fakeContainer) Command() string {
+func (f *fakeContainer) Command() []string {
 	return f.command
+}
+
+func (f *fakeContainer) Args() []string {
+	return f.args
 }
 
 func (f *fakeContainer) TTY() bool {

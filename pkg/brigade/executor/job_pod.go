@@ -10,7 +10,6 @@ import (
 	"github.com/lovethedrake/brigdrake/pkg/brigade"
 	"github.com/lovethedrake/brigdrake/pkg/drake"
 	"github.com/lovethedrake/drakecore/config"
-	"github.com/mattn/go-shellwords"
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -293,15 +292,10 @@ func buildJobPodContainer(
 			container.Name(),
 		)
 	}
-	command, err := shellwords.Parse(container.Command())
-	if err != nil {
-		return v1.Container{}, err
-	}
 	c := v1.Container{
 		Name:            container.Name(),
 		Image:           container.Image(),
 		ImagePullPolicy: v1.PullAlways,
-		Command:         command,
 		Env:             []v1.EnvVar{},
 		SecurityContext: &v1.SecurityContext{
 			Privileged: &privileged,
@@ -309,6 +303,14 @@ func buildJobPodContainer(
 		VolumeMounts: []v1.VolumeMount{},
 		Stdin:        container.TTY(),
 		TTY:          container.TTY(),
+	}
+	cmd := container.Command()
+	if len(cmd) > 0 {
+		c.Command = cmd
+	}
+	args := container.Args()
+	if len(args) > 0 {
+		c.Args = args
 	}
 	for k := range project.Secrets {
 		c.Env = append(
