@@ -99,20 +99,12 @@
   version = "v1.4.0"
 
 [[projects]]
-  digest = "1:cfdadef7e72b0b8557a047e8f7c34435c28c58a72cd107913cce206ca660ab2b"
+  digest = "1:902dd4b944f4c8046b4784a06a2b29979338e2ce966d84257bc7f32b27fecb48"
   name = "github.com/lovethedrake/drakecore"
   packages = ["config"]
   pruneopts = "UT"
-  revision = "2426b6fca8b1768abcb6383c09e7abf8cbf2213c"
-  version = "v0.7.0"
-
-[[projects]]
-  digest = "1:a310b34fdb4af778ac92cdc961165fa4d994ea9753c3da99bd9e5285b94cde6a"
-  name = "github.com/mattn/go-shellwords"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "a72fbe27a1b0ed0df2f02754945044ce1456608b"
-  version = "v1.0.5"
+  revision = "f0769465c69b3b975a3be24076ce5edff5f0f028"
+  version = "v0.8.0"
 
 [[projects]]
   digest = "1:33422d238f147d247752996a26574ac48dcf472976eda7f5134015f06bf16563"
@@ -536,7 +528,6 @@
     "github.com/google/go-github/github",
     "github.com/kelseyhightower/envconfig",
     "github.com/lovethedrake/drakecore/config",
-    "github.com/mattn/go-shellwords",
     "github.com/pkg/errors",
     "github.com/satori/go.uuid",
     "github.com/stretchr/testify/require",
