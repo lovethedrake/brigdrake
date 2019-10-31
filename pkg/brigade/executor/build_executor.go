@@ -67,7 +67,7 @@ func ExecuteBuild(
 				)
 			}
 			if meetsCriteria {
-				jsn, err := trigger.JobStatusNotifier(event)
+				jsn, err := trigger.JobStatusNotifier(project, event)
 				if err != nil {
 					return errors.Wrapf(
 						err,

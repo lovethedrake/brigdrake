@@ -138,11 +138,10 @@ pipelines:
     - specUri: github.com/lovethedrake/drakespec-github
       specVersion: v1.0.0
       config:
-        checkSuiteRequest:
-          branches:
-            ignore:
-            - master
-            - gh-pages
+        pullRequest:
+          targetBranches:
+            only:
+            - /.*/
     jobs:
     - name: lint
     - name: verify-vendored-code
@@ -169,7 +168,7 @@ pipelines:
     - specUri: github.com/lovethedrake/drakespec-github
       specVersion: v1.0.0
       config:
-        checkSuiteRequest:
+        push:
           branches:
             only:
             - master
@@ -200,7 +199,7 @@ pipelines:
     - specUri: github.com/lovethedrake/drakespec-github
       specVersion: v1.0.0
       config:
-        tagPush:
+        push:
           tags:
             only:
             - /v[0-9]+(\.[0-9]+)*(\-.+)?/
