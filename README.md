@@ -98,17 +98,14 @@ is a different thing.)
 
 1. Set the following permissions:
     - __Checks:__ Read & write
+        - Only needed if you want job statuses reported back to GitHub. This
+          requires addiitonal project-level setup that isn't currently
+          documented.
     - __Repository contents:__ Read-only
-    - __Issues:__ Read-only
     - __Repository metadata:__ Read-only
     - __Pull requests:__ Read-only
-    - __Repository webhooks:__ Read-only
-    - __Commit Statuses:__ Read & write
     
 1. Subscribe to the following events:
-    - __Check run__
-    - __Check suite__
-    - __Issue comment__
     - __Pull request__
     - __Push__
 
@@ -116,8 +113,6 @@ is a different thing.)
 
 1. When the App has been successfully created, you will be taken to a
    confirmation page.
-
-    1. Take note of the __App ID__. You will need this later.
 
     1. The page will prompt you to generate a private key. Follow the link to do
        so and download the key. __Note this is your only opportunity to do so.
@@ -147,9 +142,6 @@ section.
 * __key__ must be configured with the entire contents of the private key file
   downloaded in the previous section. Pay special attention to syntax and
   indentation when setting the value for this field. (See example below.)
-
-* __appID__ must be configured with the unique identifier for the GitHub App. We
-  took note of this identifier in the previous section.
 
 * __defaultSharedSecret__ must be set to the same shared secret we used when
   creating the GitHub App.
@@ -188,8 +180,7 @@ Example:
         ................................................................
         ....................................RfVw9nXXvmgyT0=
         -----END RSA PRIVATE KEY-----
-      appID: "12345"
-      checkSuiteOnPR: true
+      # ...
       defaultSharedSecret: UXn+lZdEvLXpPCQOfoRR
 ```
 
