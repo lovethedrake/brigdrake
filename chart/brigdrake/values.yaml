@@ -101,8 +101,9 @@ brigade:
       appID:
       ## Trigger a Check Suite on Pull Requests
       ## This will need to be set to true to enable running Check Suites on PRs
-      ## originating from forks.
-      checkSuiteOnPR: true
+      ## originating from forks. This is often a useful feature for plain
+      ## Brigade, but brigdrake does not benefit from it.
+      checkSuiteOnPR: false
       ## Set a defaultSharedSecret if you want to use this one instance of the
       ## Github gateway with multiple Brigade projects. Leave the shared secret
       ## field blank in project-level configuration and this default will be
