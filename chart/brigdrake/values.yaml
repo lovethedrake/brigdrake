@@ -87,7 +87,10 @@ brigade:
       - MEMBER
       - COLLABORATOR
       emittedEvents:
-      - "*"
+      - pull_request:opened
+      - pull_request:synchronize
+      - pull_request:reopened
+      - push
     github:
       ## The x509 PEM-formatted keyfile GitHub issued for you App.
       key: |

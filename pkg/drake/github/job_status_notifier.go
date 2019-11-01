@@ -3,6 +3,7 @@ package github
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"time"
@@ -10,7 +11,7 @@ import (
 	"github.com/google/go-github/github"
 	"github.com/lovethedrake/brigdrake/pkg/drake"
 	"github.com/lovethedrake/drakecore/config"
-	"golang.org/x/oauth2"
+	"github.com/pkg/errors"
 )
 
 // simpleGithubClient is an interface for a github client that contains
@@ -37,33 +38,35 @@ type jobStatusNotifier struct {
 
 // newJobStatusNotifier returns an implementation of the drake.JobStatusNotifier
 // interface that can report Brigade / Drake job statuses to GitHub as check
-// runs. It is assumed that this function is only invoked for
-// check_suite:requested and check_suite:rerequested events, i.e. events whose
-// payload can be unmarshaled into a checkSuiteEventPayloadWrapper.
+// runs.
 func newJobStatusNotifier(
-	csePayloadWrapper checkSuiteEventPayloadWrapper,
-) drake.JobStatusNotifier {
-	return &jobStatusNotifier{
-		checkRunsURL: fmt.Sprintf(
-			"repos/%s/%s/check-runs",
-			csePayloadWrapper.CheckSuiteEvent.Repo.Owner.GetLogin(),
-			csePayloadWrapper.CheckSuiteEvent.Repo.GetName(),
-		),
-		commit: csePayloadWrapper.CheckSuiteEvent.CheckSuite.GetHeadSHA(),
-		githubClient: github.NewClient(
-			oauth2.NewClient(
-				context.Background(),
-				oauth2.StaticTokenSource(
-					&oauth2.Token{
-						AccessToken: csePayloadWrapper.Token,
-						// For installation tokens, Github uses a different token type
-						// ("token" instead of "bearer")
-						TokenType: "token",
-					},
-				),
-			),
-		),
+	appID int64,
+	installationID int64,
+	base64EncodedGithubKey string,
+	repoOwner string,
+	repoName string,
+	commit string,
+) (drake.JobStatusNotifier, error) {
+	githubKey, err := base64.StdEncoding.DecodeString(base64EncodedGithubKey)
+	if err != nil {
+		return nil, errors.Wrap(err, "error base64 decoding github key")
 	}
+	githubClient, err := newClientFromKeyPEM(
+		appID,
+		installationID,
+		[]byte(githubKey),
+	)
+	if err != nil {
+		return nil, errors.Wrap(
+			err,
+			"error creating github client for job status notifier",
+		)
+	}
+	return &jobStatusNotifier{
+		checkRunsURL: fmt.Sprintf("repos/%s/%s/check-runs", repoOwner, repoName),
+		commit:       commit,
+		githubClient: githubClient,
+	}, nil
 }
 
 func (j *jobStatusNotifier) SendInProgressNotification(job config.Job) error {
@@ -129,6 +132,6 @@ func (j *jobStatusNotifier) notifyGithub(run github.CheckRun) error {
 	}
 	// Turn on beta feature.
 	req.Header.Set("Accept", "application/vnd.github.antiope-preview+json")
-	_, err = j.githubClient.Do(context.Background(), req, bytes.NewBuffer(nil))
+	_, err = j.githubClient.Do(context.TODO(), req, bytes.NewBuffer(nil))
 	return err
 }

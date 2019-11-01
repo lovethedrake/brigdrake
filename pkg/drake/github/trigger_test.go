@@ -38,8 +38,8 @@ func TestMatches(t *testing.T) {
 			},
 		},
 		{
-			name: "check suite request event with unconfigured check suite " +
-				"request event selector",
+			name: "pull request event with unconfigured pull request event " +
+				"selector",
 			trigger: &trigger{},
 			event: brigade.Event{
 				Provider: "github",
@@ -51,13 +51,13 @@ func TestMatches(t *testing.T) {
 			},
 		},
 		{
-			name: "check suite request event with unconfigured branch selector",
+			name: "pull request event with unconfigured target branch selector",
 			trigger: &trigger{
-				CheckSuiteRequestEventSelector: &checkSuiteRequestEventSelector{},
+				PullRequestEventSelector: &pullRequestEventSelector{},
 			},
 			event: brigade.Event{
 				Provider: "github",
-				Type:     "check_suite:requested",
+				Type:     "pull_request:opened",
 			},
 			assertions: func(t *testing.T, matches bool, err error) {
 				require.NoError(t, err)
@@ -65,19 +65,18 @@ func TestMatches(t *testing.T) {
 			},
 		},
 		{
-			name: "check suite request event that does not match trigger",
+			name: "pull request event that does not match trigger",
 			trigger: &trigger{
-				CheckSuiteRequestEventSelector: &checkSuiteRequestEventSelector{
-					BranchSelector: &refSelector{
+				PullRequestEventSelector: &pullRequestEventSelector{
+					TargetBranchSelector: &refSelector{
 						WhitelistedRefs: []string{"master"},
 					},
 				},
 			},
 			event: brigade.Event{
 				Provider: "github",
-				Type:     "check_suite:requested",
-				// Looks like a check suite request for a commit from a fork
-				Payload: []byte(`{"body":{"action":"rerequested","check_suite":{"head_branch":null}}}`), // nolint: lll
+				Type:     "pull_request:opened",
+				Payload:  []byte(`{"action":"opened","pull_request":{"base":{"ref":"foo"}}}`), // nolint: lll
 			},
 			assertions: func(t *testing.T, matches bool, err error) {
 				require.NoError(t, err)
@@ -85,19 +84,18 @@ func TestMatches(t *testing.T) {
 			},
 		},
 		{
-			name: "check suite request event that matches trigger",
+			name: "pull request event that matches trigger",
 			trigger: &trigger{
-				CheckSuiteRequestEventSelector: &checkSuiteRequestEventSelector{
-					BranchSelector: &refSelector{
+				PullRequestEventSelector: &pullRequestEventSelector{
+					TargetBranchSelector: &refSelector{
 						WhitelistedRefs: []string{"master"},
 					},
 				},
 			},
 			event: brigade.Event{
 				Provider: "github",
-				Type:     "check_suite:requested",
-				// Looks like a check suite request for a commit on master
-				Payload: []byte(`{"body":{"action":"rerequested","check_suite":{"head_branch":"master"}}}`), // nolint: lll
+				Type:     "pull_request:opened",
+				Payload:  []byte(`{"action":"opened","pull_request":{"base":{"ref":"master"}}}`), // nolint: lll
 			},
 			assertions: func(t *testing.T, matches bool, err error) {
 				require.NoError(t, err)
@@ -105,13 +103,12 @@ func TestMatches(t *testing.T) {
 			},
 		},
 		{
-			name: "push event with unconfigured tag push event selector",
-			trigger: &trigger{
-				TagPushEventSelector: &tagPushEventSelector{},
-			},
+			name:    "push event for branch with no push event selector",
+			trigger: &trigger{},
 			event: brigade.Event{
 				Provider: "github",
 				Type:     "push",
+				Payload:  []byte(`{"ref":"refs/heads/master"}`),
 			},
 			assertions: func(t *testing.T, matches bool, err error) {
 				require.NoError(t, err)
@@ -119,19 +116,15 @@ func TestMatches(t *testing.T) {
 			},
 		},
 		{
-			name: "push event that isn't for a new tag",
+			name: "push event for branch with push event selector that has no " +
+				"branch selector",
 			trigger: &trigger{
-				TagPushEventSelector: &tagPushEventSelector{
-					TagSelector: &refSelector{
-						WhitelistedRefs: []string{"v0.0.1"},
-					},
-				},
+				PushEventSelector: &pushEventSelector{},
 			},
 			event: brigade.Event{
 				Provider: "github",
 				Type:     "push",
-				// Looks like a push request that isn't for a new tag
-				Payload: []byte(`{"ref":"refs/head/master"}`),
+				Payload:  []byte(`{"ref":"refs/heads/master"}`),
 			},
 			assertions: func(t *testing.T, matches bool, err error) {
 				require.NoError(t, err)
@@ -139,18 +132,19 @@ func TestMatches(t *testing.T) {
 			},
 		},
 		{
-			name: "push event that does not match trigger",
+			name: "push event for branch that does not match push event selector's " +
+				"branch selector",
 			trigger: &trigger{
-				TagPushEventSelector: &tagPushEventSelector{
-					TagSelector: &refSelector{
-						WhitelistedRefs: []string{"v0.0.1"},
+				PushEventSelector: &pushEventSelector{
+					BranchSelector: &refSelector{
+						WhitelistedRefs: []string{"master"},
 					},
 				},
 			},
 			event: brigade.Event{
 				Provider: "github",
 				Type:     "push",
-				Payload:  []byte(`{"ref":"refs/tags/foobar"}`),
+				Payload:  []byte(`{"ref":"refs/heads/foo"}`),
 			},
 			assertions: func(t *testing.T, matches bool, err error) {
 				require.NoError(t, err)
@@ -158,18 +152,88 @@ func TestMatches(t *testing.T) {
 			},
 		},
 		{
-			name: "push event that matches trigger",
+			name: "push event for branch that that matches push event selector's " +
+				"branch selector",
 			trigger: &trigger{
-				TagPushEventSelector: &tagPushEventSelector{
-					TagSelector: &refSelector{
-						WhitelistedRefs: []string{"v0.0.1"},
+				PushEventSelector: &pushEventSelector{
+					BranchSelector: &refSelector{
+						WhitelistedRefs: []string{"master"},
 					},
 				},
 			},
 			event: brigade.Event{
 				Provider: "github",
 				Type:     "push",
-				Payload:  []byte(`{"ref":"refs/tags/v0.0.1"}`),
+				Payload:  []byte(`{"ref":"refs/heads/master"}`),
+			},
+			assertions: func(t *testing.T, matches bool, err error) {
+				require.NoError(t, err)
+				require.True(t, matches)
+			},
+		},
+		{
+			name:    "push event for tag with no push event selector",
+			trigger: &trigger{},
+			event: brigade.Event{
+				Provider: "github",
+				Type:     "push",
+				Payload:  []byte(`{"ref":"refs/tags/foo"}`),
+			},
+			assertions: func(t *testing.T, matches bool, err error) {
+				require.NoError(t, err)
+				require.False(t, matches)
+			},
+		},
+		{
+			name: "push event for tag with push event selector that has no tag " +
+				"selector",
+			trigger: &trigger{
+				PushEventSelector: &pushEventSelector{},
+			},
+			event: brigade.Event{
+				Provider: "github",
+				Type:     "push",
+				Payload:  []byte(`{"ref":"refs/tags/foo"}`),
+			},
+			assertions: func(t *testing.T, matches bool, err error) {
+				require.NoError(t, err)
+				require.False(t, matches)
+			},
+		},
+		{
+			name: "push event for tag that does not match push event selector's " +
+				"tag selector",
+			trigger: &trigger{
+				PushEventSelector: &pushEventSelector{
+					TagSelector: &refSelector{
+						WhitelistedRefs: []string{"foo"},
+					},
+				},
+			},
+			event: brigade.Event{
+				Provider: "github",
+				Type:     "push",
+				Payload:  []byte(`{"ref":"refs/tags/bar"}`),
+			},
+			assertions: func(t *testing.T, matches bool, err error) {
+				require.NoError(t, err)
+				require.False(t, matches)
+			},
+		},
+		{
+			name: "push event for tag that matches push event selector's tag " +
+				"selector",
+			trigger: &trigger{
+				PushEventSelector: &pushEventSelector{
+					TagSelector: &refSelector{
+						WhitelistedRefs: []string{"foo"},
+					},
+				},
+			},
+			event: brigade.Event{
+				Provider: "github",
+				Type:     "push",
+				Payload:  []byte(`{"ref":"refs/tags/foo"}`),
 			},
 			assertions: func(t *testing.T, matches bool, err error) {
 				require.NoError(t, err)
