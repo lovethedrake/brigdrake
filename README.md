@@ -99,7 +99,7 @@ is a different thing.)
 1. Set the following permissions:
     - __Checks:__ Read & write
         - Only needed if you want job statuses reported back to GitHub. This
-          requires addiitonal project-level setup that isn't currently
+          requires additional project-level setup that isn't currently
           documented.
     - __Repository contents:__ Read-only
     - __Repository metadata:__ Read-only
