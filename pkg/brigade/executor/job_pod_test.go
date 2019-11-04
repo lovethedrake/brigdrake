@@ -192,12 +192,12 @@ func TestBuildJobPod(t *testing.T) {
 				"foo",
 				&fakeJob{
 					name: "bar",
-					containers: []config.Container{
-						&fakeContainer{
-							name:                   "bat",
-							sourceMountPath:        "/src",
-							sharedStorageMountPath: "/shared",
-						},
+					primaryContainer: &fakeContainer{
+						name:                   "bat",
+						sourceMountPath:        "/src",
+						sharedStorageMountPath: "/shared",
+					},
+					sidecarContainers: []config.Container{
 						&fakeContainer{
 							name:                   "baz",
 							sourceMountPath:        "/src",
@@ -329,17 +329,22 @@ func TestBuildJobPodContainer(t *testing.T) {
 }
 
 type fakeJob struct {
-	name            string
-	containers      []config.Container
-	sourceMountMode config.SourceMountMode
+	name              string
+	primaryContainer  config.Container
+	sidecarContainers []config.Container
+	sourceMountMode   config.SourceMountMode
 }
 
 func (f *fakeJob) Name() string {
 	return f.name
 }
 
-func (f *fakeJob) Containers() []config.Container {
-	return f.containers
+func (f *fakeJob) PrimaryContainer() config.Container {
+	return f.primaryContainer
+}
+
+func (f *fakeJob) SidecarContainers() []config.Container {
+	return f.sidecarContainers
 }
 
 func (f *fakeJob) SourceMountMode() config.SourceMountMode {
