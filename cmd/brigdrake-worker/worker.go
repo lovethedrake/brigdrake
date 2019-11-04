@@ -7,6 +7,7 @@ import (
 	"github.com/lovethedrake/brigdrake/pkg/brigade/executor"
 	"github.com/lovethedrake/brigdrake/pkg/signals"
 	"github.com/lovethedrake/brigdrake/pkg/version"
+	"github.com/lovethedrake/drakecore/config"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
@@ -14,9 +15,11 @@ import (
 func main() {
 
 	log.Printf(
-		"Starting BrigDrake worker -- version %s -- commit %s",
+		"Starting BrigDrake worker -- version %s -- commit %s -- supports "+
+			"DrakeSpec %s",
 		version.Version(),
 		version.Commit(),
+		config.SupportedSpecVersions,
 	)
 
 	clientConfig, err := rest.InClusterConfig()
