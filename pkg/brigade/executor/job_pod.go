@@ -165,18 +165,30 @@ func buildJobPod(
 		},
 	}
 
-	// All the volumes we will need
+	primaryContainer := job.PrimaryContainer()
+	sidecarContainers := job.SidecarContainers()
+
+	// All the volumes we might need
 	var jobUsesSource bool
 	var jobUsesSharedStorage bool
 	var jobUsessDockerSocket bool
-	for _, container := range job.Containers() {
-		if container.SourceMountPath() != "" {
+	if primaryContainer.SourceMountPath() != "" {
+		jobUsesSource = true
+	}
+	if primaryContainer.SharedStorageMountPath() != "" {
+		jobUsesSharedStorage = true
+	}
+	if primaryContainer.MountDockerSocket() {
+		jobUsessDockerSocket = true
+	}
+	for _, sidecarContainer := range job.SidecarContainers() {
+		if sidecarContainer.SourceMountPath() != "" {
 			jobUsesSource = true
 		}
-		if container.SharedStorageMountPath() != "" {
+		if sidecarContainer.SharedStorageMountPath() != "" {
 			jobUsesSharedStorage = true
 		}
-		if container.MountDockerSocket() {
+		if sidecarContainer.MountDockerSocket() {
 			jobUsessDockerSocket = true
 		}
 	}
@@ -239,34 +251,44 @@ func buildJobPod(
 		}
 	}
 
-	containers := job.Containers()
-	pod.Spec.Containers = make([]v1.Container, len(containers))
-	for i, container := range containers {
-		jobPodContainer, err := buildJobPodContainer(
+	// First the primary container
+	pod.Spec.Containers = make([]v1.Container, 1+len(sidecarContainers))
+	jobPodPrimaryContainer, err := buildJobPodContainer(
+		project,
+		event,
+		primaryContainer,
+		job.SourceMountMode(),
+	)
+	if err != nil {
+		err = errors.Wrapf(
+			err,
+			"error building container spec for primary container %q of job %q",
+			primaryContainer.Name(),
+			job.Name(),
+		)
+		return nil, err
+	}
+	pod.Spec.Containers[0] = jobPodPrimaryContainer
+
+	// Then the sidecars...
+	for i, sidecarContainer := range sidecarContainers {
+		jobPodSidecarContainer, err := buildJobPodContainer(
 			project,
 			event,
-			container,
+			sidecarContainer,
 			job.SourceMountMode(),
 		)
 		if err != nil {
 			err = errors.Wrapf(
 				err,
-				"error building container spec for container %q of job %q",
-				container.Name(),
+				"error building container spec for sidecar container %q of job %q",
+				sidecarContainer.Name(),
 				job.Name(),
 			)
 			return nil, err
 		}
-		// We'll treat all but the last container as sidecars. i.e. The last
-		// container in the job should be container 0 in the pod spec.
-		if i < len(containers)-1 {
-			// +1 because we want to leave room in the first (0th) position for the
-			// primary container.
-			pod.Spec.Containers[i+1] = jobPodContainer
-			continue
-		}
-		// This is the primary container. Make it the first (0th) in the pod spec.
-		pod.Spec.Containers[0] = jobPodContainer
+		// +1 because the 0 element has the primary container.
+		pod.Spec.Containers[i+1] = jobPodSidecarContainer
 	}
 	return pod, nil
 }

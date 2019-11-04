@@ -1,5 +1,5 @@
 specUri: github.com/lovethedrake/drakespec
-specVersion: v0.1.0
+specVersion: v0.2.0
 
 snippets:
 
@@ -30,8 +30,8 @@ jobs:
 ################################################################################
 
   dep:
-    containers:
-    - <<: *baseGoContainer
+    primaryContainer:
+      <<: *baseGoContainer
       command: ["dep", "ensure"]
       args: ["-v"]
     sourceMountMode: RW
@@ -41,13 +41,13 @@ jobs:
 ################################################################################
 
   verify-vendored-code:
-    containers:
-    - <<: *baseGoContainer
+    primaryContainer:
+      <<: *baseGoContainer
       command: ["dep", "check"]
 
   test-unit:
-    containers:
-    - <<: *baseGoContainer
+    primaryContainer:
+      <<: *baseGoContainer
       command: ["go", "test"]
       args:
       - -timeout
@@ -60,23 +60,23 @@ jobs:
       sharedStorageMountPath: /shared
 
   upload-coverage-report:
-    containers:
-    - <<: *baseGoContainer
+    primaryContainer:
+      <<: *baseGoContainer
       command: ["bash", "-c"]
       args: ["bash <(curl -s https://codecov.io/bash) -f /shared/coverage.txt"]
       sharedStorageMountPath: /shared
 
   lint:
-    containers:
-    - <<: *baseGoContainer
+    primaryContainer:
+      <<: *baseGoContainer
       command: ["golangci-lint", "run"]
       args:
       - ./cmd/...
       - ./pkg/...
 
   lint-chart:
-    containers:
-    - <<: *baseHelmContainer
+    primaryContainer:
+      <<: *baseHelmContainer
       command: ["helm", "lint"]
       args: ["chart/brigdrake"]
 
@@ -87,8 +87,8 @@ jobs:
   # This requires a lot of privilege to run and may be useful locally, but
   # favor the DinD variant for use in CI/CD pipelines.
   build-worker-dood:
-    containers:
-    - name: dood
+    primaryContainer:
+      name: dood
       image: krancour/dind:18.09.5
       sourceMountPath: /go/src/github.com/lovethedrake/brigdrake
       workingDirectory: /go/src/github.com/lovethedrake/brigdrake
@@ -97,25 +97,25 @@ jobs:
       command: ["scripts/build-worker-dood.sh"]
 
   build-worker-dind:
-    containers:
-    - <<: *baseDindContainer
+    primaryContainer:
+      <<: *baseDindContainer
       command: ["scripts/build-worker-dind.sh"]
 
   build-and-publish-worker-dind:
-    containers:
-    - <<: *baseDindContainer
+    primaryContainer:
+      <<: *baseDindContainer
       command: ["scripts/build-and-publish-worker-dind.sh"]
 
   build-chart:
-    containers:
-    - <<: *baseHelmContainer
+    primaryContainer:
+      <<: *baseHelmContainer
       command: ["scripts/build-chart.sh"]
       sharedStorageMountPath: /shared
     sourceMountMode: COPY
 
   publish-chart:
-    containers:
-    - name: node
+    primaryContainer:
+      name: node
       image: node:10.16.1
       sourceMountPath: /brigdrake
       workingDirectory: /brigdrake
