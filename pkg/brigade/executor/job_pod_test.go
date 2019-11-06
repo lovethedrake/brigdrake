@@ -363,6 +363,22 @@ type fakeContainer struct {
 	mountDockerSocket      bool
 	sourceMountPath        string
 	sharedStorageMountPath string
+	resources              *fakeResources
+}
+
+type fakeResources struct {
+	cpu    *fakeCPU
+	memory *fakeMemory
+}
+
+type fakeCPU struct {
+	requestedMillicores *int
+	maxMillicores       *int
+}
+
+type fakeMemory struct {
+	requestedMegabytes *int
+	maxMegabytes       *int
 }
 
 func (f *fakeContainer) Name() string {
@@ -407,4 +423,53 @@ func (f *fakeContainer) SourceMountPath() string {
 
 func (f *fakeContainer) SharedStorageMountPath() string {
 	return f.sharedStorageMountPath
+}
+
+func (f *fakeContainer) Resources() config.Resources {
+	if f.resources == nil {
+		return &fakeResources{}
+	}
+	return f.resources
+}
+
+func (f *fakeResources) CPU() config.CPU {
+	if f.cpu == nil {
+		return &fakeCPU{}
+	}
+	return f.cpu
+}
+
+func (f *fakeResources) Memory() config.Memory {
+	if f.memory == nil {
+		return &fakeMemory{}
+	}
+	return f.memory
+}
+
+func (f *fakeCPU) RequestedMillicores() int {
+	if f.requestedMillicores == nil {
+		return 100
+	}
+	return *f.requestedMillicores
+}
+
+func (f *fakeCPU) MaxMillicores() int {
+	if f.maxMillicores == nil {
+		return 200
+	}
+	return *f.maxMillicores
+}
+
+func (f *fakeMemory) RequestedMegabytes() int {
+	if f.requestedMegabytes == nil {
+		return 128
+	}
+	return *f.requestedMegabytes
+}
+
+func (f *fakeMemory) MaxMegabytes() int {
+	if f.maxMegabytes == nil {
+		return 256
+	}
+	return *f.maxMegabytes
 }

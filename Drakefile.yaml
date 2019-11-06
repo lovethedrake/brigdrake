@@ -1,5 +1,5 @@
 specUri: github.com/lovethedrake/drakespec
-specVersion: v0.2.0
+specVersion: v0.3.0
 
 snippets:
 
@@ -9,6 +9,11 @@ snippets:
     sourceMountPath: /go/src/github.com/lovethedrake/brigdrake
     workingDirectory: /go/src/github.com/lovethedrake/brigdrake
     tty: true
+    resources:
+      cpu:
+        maxMillicores: 2000
+      memory:
+        maxMegabytes: 4096
 
   baseDindContainer: &baseDindContainer
     name: dind
@@ -16,12 +21,22 @@ snippets:
     sourceMountPath: /brigdrake
     workingDirectory: /brigdrake
     privileged: true
+    resources:
+      cpu:
+        maxMillicores: 2000
+      memory:
+        maxMegabytes: 4096
 
   baseHelmContainer: &baseHelmContainer
     name: helm
     image: dtzar/helm-kubectl:2.14.1
     sourceMountPath: /brigdrake
     workingDirectory: /brigdrake
+    resources:
+      cpu:
+        maxMillicores: 2000
+      memory:
+        maxMegabytes: 2048
 
 jobs:
 
@@ -88,10 +103,8 @@ jobs:
   # favor the DinD variant for use in CI/CD pipelines.
   build-worker-dood:
     primaryContainer:
-      name: dood
-      image: krancour/dind:18.09.5
-      sourceMountPath: /go/src/github.com/lovethedrake/brigdrake
-      workingDirectory: /go/src/github.com/lovethedrake/brigdrake
+      <<: *baseDindContainer
+      privileged: false
       mountDockerSocket: true
       tty: true
       command: ["scripts/build-worker-dood.sh"]
@@ -121,6 +134,11 @@ jobs:
       workingDirectory: /brigdrake
       command: ["scripts/publish-chart.sh"]
       sharedStorageMountPath: /shared
+      resources:
+        cpu:
+          maxMillicores: 2000
+        memory:
+          maxMegabytes: 2048
     sourceMountMode: COPY
 
 ################################################################################

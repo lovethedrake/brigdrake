@@ -12,6 +12,7 @@ import (
 	"github.com/lovethedrake/drakecore/config"
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/kubernetes"
@@ -314,6 +315,50 @@ func buildJobPodContainer(
 			container.Name(),
 		)
 	}
+	requestedCPUMillicores := container.Resources().CPU().RequestedMillicores()
+	requestedCPUQuantity, err := resource.ParseQuantity(
+		fmt.Sprintf("%dm", requestedCPUMillicores),
+	)
+	if err != nil {
+		return v1.Container{}, errors.Wrapf(
+			err,
+			"error parsing CPU request of %d millicores",
+			requestedCPUMillicores,
+		)
+	}
+	maxCPUMillicores := container.Resources().CPU().MaxMillicores()
+	maxCPUQuantity, err := resource.ParseQuantity(
+		fmt.Sprintf("%dm", maxCPUMillicores),
+	)
+	if err != nil {
+		return v1.Container{}, errors.Wrapf(
+			err,
+			"error parsing CPU limit of %d millicores",
+			maxCPUMillicores,
+		)
+	}
+	requestedMemMegabytes := container.Resources().Memory().RequestedMegabytes()
+	requestedMemQuantity, err := resource.ParseQuantity(
+		fmt.Sprintf("%dM", requestedMemMegabytes),
+	)
+	if err != nil {
+		return v1.Container{}, errors.Wrapf(
+			err,
+			"error parsing memory request of %d megabytes",
+			requestedMemMegabytes,
+		)
+	}
+	maxMemMegabytes := container.Resources().Memory().MaxMegabytes()
+	maxMemQuantity, err := resource.ParseQuantity(
+		fmt.Sprintf("%dM", maxMemMegabytes),
+	)
+	if err != nil {
+		return v1.Container{}, errors.Wrapf(
+			err,
+			"error parsing memory limit of %d megabytes",
+			maxMemMegabytes,
+		)
+	}
 	c := v1.Container{
 		Name:            container.Name(),
 		Image:           container.Image(),
@@ -325,6 +370,16 @@ func buildJobPodContainer(
 		VolumeMounts: []v1.VolumeMount{},
 		Stdin:        container.TTY(),
 		TTY:          container.TTY(),
+		Resources: v1.ResourceRequirements{
+			Requests: v1.ResourceList{
+				v1.ResourceCPU:    requestedCPUQuantity,
+				v1.ResourceMemory: requestedMemQuantity,
+			},
+			Limits: v1.ResourceList{
+				v1.ResourceCPU:    maxCPUQuantity,
+				v1.ResourceMemory: maxMemQuantity,
+			},
+		},
 	}
 	cmd := container.Command()
 	if len(cmd) > 0 {
