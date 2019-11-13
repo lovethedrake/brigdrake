@@ -3,6 +3,7 @@ package executor
 import (
 	"context"
 	"log"
+	"os"
 	"sync"
 
 	"github.com/lovethedrake/brigdrake/pkg/brigade"
@@ -27,7 +28,37 @@ func ExecuteBuild(
 	workerConfig brigade.WorkerConfig,
 	kubeClient kubernetes.Interface,
 ) error {
-	const drakefileLocation = "/vcs/Drakefile.yaml"
+	// nolint: lll
+	possibleDrakefileLocations := []string{
+		"/etc/brigade/script",                        // data mounted from event secret (e.g. brig run)
+		"/vcs/Drakefile.yaml",                        // checked out in repo
+		"/etc/brigade-project/defaultScript",         // data mounted from project.DefaultScript
+		"/etc/brigade-default-script/Drakefile.yaml", // mounted configmap named in brigade.sh/project.DefaultScriptName
+	}
+	var drakefileLocation string
+	for _, possibleDrakefileLocation := range possibleDrakefileLocations {
+		fileInfo, err := os.Stat(possibleDrakefileLocation)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return errors.Wrapf(
+				err,
+				"error getting info for file %q",
+				possibleDrakefileLocation,
+			)
+		}
+		if fileInfo.Size() == 0 {
+			continue
+		}
+		drakefileLocation = possibleDrakefileLocation
+		break
+	}
+	if drakefileLocation == "" {
+		return errors.New("could not locate Drakefile.yaml")
+	}
+
+	log.Printf("loading configuration from %q", drakefileLocation)
 	cfg, err := config.NewConfigFromFile(drakefileLocation)
 	if err != nil {
 		return errors.Wrapf(err, "error reading %s", drakefileLocation)
