@@ -8,6 +8,7 @@ import (
 
 	"github.com/lovethedrake/brigdrake/pkg/brigade"
 	"github.com/lovethedrake/brigdrake/pkg/drake"
+	"github.com/lovethedrake/brigdrake/pkg/drake/brig"
 	"github.com/lovethedrake/brigdrake/pkg/drake/github"
 	"github.com/lovethedrake/drakecore/config"
 	"github.com/pkg/errors"
@@ -16,6 +17,7 @@ import (
 
 var triggerBuilderFns = map[string]func([]byte) (drake.Trigger, error){
 	"github.com/lovethedrake/drakespec-github": github.NewTriggerFromJSON,
+	"github.com/lovethedrake/drakespec-brig":   brig.NewTriggerFromJSON,
 }
 
 // ExecuteBuild can execute a Brigade build driven via Drakefile.yaml when
