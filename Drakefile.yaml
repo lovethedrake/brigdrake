@@ -99,6 +99,15 @@ jobs:
 # Build / publish jobs                                                         #
 ################################################################################
 
+  build-worker-binary:
+    primaryContainer:
+      <<: *baseGoContainer
+      environment:
+      - CGO_ENABLED=0
+      command: ["scripts/build-worker-binary.sh"]
+      args: ["linux", "amd64"]
+      sharedStorageMountPath: /shared
+
   # This requires a lot of privilege to run and may be useful locally, but
   # favor the DinD variant for use in CI/CD pipelines.
   build-worker-dood:
@@ -125,6 +134,12 @@ jobs:
       command: ["scripts/build-chart.sh"]
       sharedStorageMountPath: /shared
     sourceMountMode: COPY
+
+  publish-worker-binary:
+    primaryContainer:
+      <<: *baseGoContainer
+      command: ["scripts/publish-worker-binary.sh"]
+      sharedStorageMountPath: /shared
 
   publish-chart:
     primaryContainer:
@@ -235,7 +250,11 @@ pipelines:
             only:
             - /v[0-9]+(\.[0-9]+)*(\-.+)?/
     jobs:
+    - name: build-worker-binary
     - name: build-chart
+    - name: publish-worker-binary
+      dependencies:
+      - build-worker-binary
     - name: build-and-publish-worker-dind
       dependencies:
       - build-chart
