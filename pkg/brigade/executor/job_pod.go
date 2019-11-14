@@ -362,7 +362,7 @@ func buildJobPodContainer(
 	c := v1.Container{
 		Name:            container.Name(),
 		Image:           container.Image(),
-		ImagePullPolicy: v1.PullAlways,
+		ImagePullPolicy: v1.PullPolicy(container.ImagePullPolicy()),
 		Env:             []v1.EnvVar{},
 		SecurityContext: &v1.SecurityContext{
 			Privileged: &privileged,

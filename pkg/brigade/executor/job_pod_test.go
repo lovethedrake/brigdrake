@@ -354,6 +354,7 @@ func (f *fakeJob) SourceMountMode() config.SourceMountMode {
 type fakeContainer struct {
 	name                   string
 	image                  string
+	imagePullPolicy        config.ImagePullPolicy
 	environment            []string
 	workingDirectory       string
 	command                []string
@@ -387,6 +388,10 @@ func (f *fakeContainer) Name() string {
 
 func (f *fakeContainer) Image() string {
 	return f.image
+}
+
+func (f *fakeContainer) ImagePullPolicy() config.ImagePullPolicy {
+	return f.imagePullPolicy
 }
 
 func (f *fakeContainer) Environment() []string {

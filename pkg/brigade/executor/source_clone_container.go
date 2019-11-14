@@ -15,8 +15,8 @@ func buildSourceCloneContainer(
 	const srcDir = "/src"
 	container := v1.Container{
 		Name:            "source-cloner",
-		Image:           "brigadecore/git-sidecar:v1.1.0",
-		ImagePullPolicy: v1.PullAlways,
+		Image:           "brigadecore/git-sidecar:v1.2.1",
+		ImagePullPolicy: v1.PullIfNotPresent,
 		Env: []v1.EnvVar{
 			{
 				Name:  "CI",
