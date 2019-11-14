@@ -12,4 +12,4 @@ set +x
 
 echo "Publishing binary for commit $full_git_version"
 
-ghr -t $GITHUB_TOKEN -u lovethedrake -r devdrake -c $full_git_version -delete $rel_version /shared/bin/
+ghr -t $GITHUB_TOKEN -u lovethedrake -r brigdrake -c $full_git_version -delete $rel_version /shared/bin/
