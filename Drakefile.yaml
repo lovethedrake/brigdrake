@@ -162,6 +162,13 @@ pipelines:
           targetBranches:
             only:
             - /.*/
+    # This is a placeholder. No formal spec exists for this trigger yet.
+    # Stay tuned.
+    - specUri: github.com/lovethedrake/drakespec-brig
+      specVersion: v1.0.0
+      config:
+        eventTypes:
+        - test
     jobs:
     - name: lint
     - name: verify-vendored-code
