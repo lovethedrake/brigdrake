@@ -163,6 +163,9 @@ func buildJobPod(
 		Spec: v1.PodSpec{
 			RestartPolicy: v1.RestartPolicyNever,
 			Volumes:       []v1.Volume{},
+			NodeSelector: map[string]string{
+				"beta.kubernetes.io/os": string(job.OSFamily()),
+			},
 		},
 	}
 
