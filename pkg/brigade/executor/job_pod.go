@@ -169,6 +169,17 @@ func buildJobPod(
 		},
 	}
 
+	if job.OSFamily() == config.OSFamilyWindows {
+		pod.Spec.Tolerations = []v1.Toleration{
+			{
+				Key:      "os",
+				Operator: v1.TolerationOpEqual,
+				Value:    "windows",
+				Effect:   v1.TaintEffectNoSchedule,
+			},
+		}
+	}
+
 	primaryContainer := job.PrimaryContainer()
 	sidecarContainers := job.SidecarContainers()
 
