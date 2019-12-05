@@ -334,6 +334,7 @@ type fakeJob struct {
 	sidecarContainers []config.Container
 	sourceMountMode   config.SourceMountMode
 	osFamily          config.OSFamily
+	cpuArch           config.CPUArch
 }
 
 func (f *fakeJob) Name() string {
@@ -354,6 +355,10 @@ func (f *fakeJob) SourceMountMode() config.SourceMountMode {
 
 func (f *fakeJob) OSFamily() config.OSFamily {
 	return f.osFamily
+}
+
+func (f *fakeJob) CPUArch() config.CPUArch {
+	return f.cpuArch
 }
 
 type fakeContainer struct {

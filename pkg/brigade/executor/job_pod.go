@@ -164,20 +164,25 @@ func buildJobPod(
 			RestartPolicy: v1.RestartPolicyNever,
 			Volumes:       []v1.Volume{},
 			NodeSelector: map[string]string{
-				"beta.kubernetes.io/os": string(job.OSFamily()),
+				"beta.kubernetes.io/os":   string(job.OSFamily()),
+				"beta.kubernetes.io/arch": string(job.CPUArch()),
 			},
 		},
 	}
 
-	if job.OSFamily() == config.OSFamilyWindows {
-		pod.Spec.Tolerations = []v1.Toleration{
-			{
-				Key:      "os",
-				Operator: v1.TolerationOpEqual,
-				Value:    "windows",
-				Effect:   v1.TaintEffectNoSchedule,
-			},
-		}
+	pod.Spec.Tolerations = []v1.Toleration{
+		{
+			Key:      "os",
+			Operator: v1.TolerationOpEqual,
+			Value:    string(job.OSFamily()),
+			Effect:   v1.TaintEffectNoSchedule,
+		},
+		{
+			Key:      "arch",
+			Operator: v1.TolerationOpEqual,
+			Value:    string(job.CPUArch()),
+			Effect:   v1.TaintEffectNoSchedule,
+		},
 	}
 
 	primaryContainer := job.PrimaryContainer()
