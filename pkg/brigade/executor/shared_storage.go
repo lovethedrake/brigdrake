@@ -1,6 +1,7 @@
 package executor
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -25,7 +26,7 @@ func createSharedStoragePVC(
 	}
 	_, err = kubeClient.CoreV1().PersistentVolumeClaims(
 		project.Kubernetes.Namespace,
-	).Create(pvc)
+	).Create(context.TODO(), pvc, metav1.CreateOptions{})
 	if err != nil {
 		return errors.Wrapf(
 			err,
@@ -89,9 +90,9 @@ func destroySharedStoragePVC(
 ) error {
 	if err := kubeClient.CoreV1().PersistentVolumeClaims(
 		project.Kubernetes.Namespace,
-	).Delete(
+	).Delete(context.TODO(),
 		sharedStoragePVCName(event.WorkerID, pipelineName),
-		&metav1.DeleteOptions{},
+		metav1.DeleteOptions{},
 	); err != nil {
 		return errors.Wrapf(
 			err,
