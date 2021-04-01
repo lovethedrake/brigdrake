@@ -16,7 +16,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/kubernetes"
-	api "k8s.io/kubernetes/pkg/apis/core"
 )
 
 const (
@@ -66,7 +65,7 @@ func runJobPod(
 
 	if _, err = kubeClient.CoreV1().Pods(
 		project.Kubernetes.Namespace,
-	).Create(pod); err != nil {
+	).Create(ctx, pod, metav1.CreateOptions{}); err != nil {
 		err = errors.Wrapf(err, "error creating pod %q", podName)
 		return err
 	}
@@ -90,9 +89,10 @@ func waitForJobPodCompletion(
 	kubeClient kubernetes.Interface,
 ) error {
 	podsWatcher, err := kubeClient.CoreV1().Pods(namespace).Watch(
+		ctx,
 		metav1.ListOptions{
 			FieldSelector: fields.OneTermEqualSelector(
-				api.ObjectNameField,
+				"metadata.name",
 				podName,
 			).String(),
 		},

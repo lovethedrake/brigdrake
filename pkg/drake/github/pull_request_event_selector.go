@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"log"
 
-	"github.com/google/go-github/github"
+	"github.com/google/go-github/v18/github"
 	"github.com/lovethedrake/brigdrake/pkg/brigade"
 	"github.com/pkg/errors"
 )

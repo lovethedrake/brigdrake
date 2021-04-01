@@ -10,6 +10,7 @@ import (
 	"github.com/lovethedrake/drakecore/config"
 	"github.com/stretchr/testify/require"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 )
 
@@ -78,7 +79,7 @@ func TestWaitForJobPodCompletionWithPodCompleted(t *testing.T) {
 					State: testCase.containerState,
 				},
 			}
-			_, err := kubeClient.CoreV1().Pods(testNamespace).Update(pod)
+			_, err := kubeClient.CoreV1().Pods(testNamespace).Update(ctx, pod, metav1.UpdateOptions{})
 			require.NoError(t, err)
 			select {
 			case err := <-errCh:

@@ -1,6 +1,7 @@
 package executor
 
 import (
+	"context"
 	"strings"
 
 	"github.com/lovethedrake/brigdrake/pkg/brigade"
@@ -18,7 +19,7 @@ func createBuildSecret(
 	secret := buildBuildSecret(project, event)
 	if _, err := kubeClient.CoreV1().Secrets(
 		project.Kubernetes.Namespace,
-	).Create(secret); err != nil {
+	).Create(context.TODO(), secret, metav1.CreateOptions{}); err != nil {
 		return errors.Wrapf(
 			err,
 			"error creating secret for build %q",
@@ -51,9 +52,9 @@ func destroyBuildSecret(
 ) error {
 	if err := kubeClient.CoreV1().Secrets(
 		project.Kubernetes.Namespace,
-	).Delete(
+	).Delete(context.TODO(),
 		strings.ToLower(event.BuildID),
-		&metav1.DeleteOptions{},
+		metav1.DeleteOptions{},
 	); err != nil {
 		return errors.Wrapf(
 			err,

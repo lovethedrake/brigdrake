@@ -1,6 +1,7 @@
 package brigade
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 
@@ -64,7 +65,7 @@ func GetProjectFromEnvironmentAndSecret(
 	if err != nil {
 		return Project{}, err
 	}
-	projectSecret, err := kubeClient.CoreV1().Secrets(internalP.Namespace).Get(
+	projectSecret, err := kubeClient.CoreV1().Secrets(internalP.Namespace).Get(context.TODO(),
 		internalP.ID,
 		metav1.GetOptions{},
 	)

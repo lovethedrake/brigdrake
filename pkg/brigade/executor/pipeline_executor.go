@@ -82,8 +82,8 @@ jobsLoop:
 				log.Printf("deleting pods %q", labelSelector.String())
 				if derr := kubeClient.CoreV1().Pods(
 					project.Kubernetes.Namespace,
-				).DeleteCollection(
-					&metav1.DeleteOptions{},
+				).DeleteCollection(ctx,
+					metav1.DeleteOptions{},
 					metav1.ListOptions{
 						LabelSelector: labelSelector.String(),
 					},
