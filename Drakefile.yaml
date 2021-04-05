@@ -48,7 +48,7 @@ jobs:
     primaryContainer:
       <<: *baseGoContainer
       command: [ "go", "run", "mage.go", "vendor" ]
-      sourceMountMode: RW
+    sourceMountMode: RW
 
 ################################################################################
 # Test jobs                                                                    #
