@@ -8,7 +8,7 @@ require (
 	github.com/carolynvs/magex v0.5.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/ghodss/yaml v1.0.0 // indirect
-	github.com/google/go-github/v18 v18.2.0
+	github.com/google/go-github/v33 v33.0.0
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/lovethedrake/drakecore v0.14.0
 	github.com/magefile/mage v1.11.0

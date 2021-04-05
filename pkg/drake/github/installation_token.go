@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
+	"github.com/google/go-github/v33/github"
 )
 
 // getInstallationToken returns an installation token for the given appID, and
@@ -26,6 +27,7 @@ func getInstallationToken(
 	installationToken, _, err := githubClient.Apps.CreateInstallationToken(
 		context.TODO(),
 		installationID,
+		&github.InstallationTokenOptions{},
 	)
 	if err != nil {
 		return "", err
