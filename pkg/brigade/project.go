@@ -65,7 +65,8 @@ func GetProjectFromEnvironmentAndSecret(
 	if err != nil {
 		return Project{}, err
 	}
-	projectSecret, err := kubeClient.CoreV1().Secrets(internalP.Namespace).Get(context.TODO(),
+	projectSecret, err := kubeClient.CoreV1().Secrets(internalP.Namespace).Get(
+		context.TODO(),
 		internalP.ID,
 		metav1.GetOptions{},
 	)

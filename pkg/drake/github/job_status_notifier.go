@@ -92,7 +92,9 @@ func (j *jobStatusNotifier) SendSuccessNotification(job config.Job) error {
 }
 
 func (j *jobStatusNotifier) SendCancelledNotification(job config.Job) error {
-	return j.sendCompletedNotification(job, "cancelled")
+	// This misspelling was deliberate because it's misspelled this way in the
+	// GitHub Checks API.
+	return j.sendCompletedNotification(job, "cancelled") // nolint: misspell
 }
 
 func (j *jobStatusNotifier) SendTimedOutNotification(job config.Job) error {
