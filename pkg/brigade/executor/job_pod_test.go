@@ -79,7 +79,11 @@ func TestWaitForJobPodCompletionWithPodCompleted(t *testing.T) {
 					State: testCase.containerState,
 				},
 			}
-			_, err := kubeClient.CoreV1().Pods(testNamespace).Update(ctx, pod, metav1.UpdateOptions{})
+			_, err := kubeClient.CoreV1().Pods(testNamespace).Update(
+				ctx,
+				pod,
+				metav1.UpdateOptions{},
+			)
 			require.NoError(t, err)
 			select {
 			case err := <-errCh:
