@@ -6,7 +6,6 @@ replace github.com/mholt/caddy => github.com/caddyserver/caddy/v2 v2.3.0
 
 require (
 	github.com/carolynvs/magex v0.5.0
-	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/ghodss/yaml v1.0.0 // indirect
 	github.com/google/go-github/v33 v33.0.0
 	github.com/kelseyhightower/envconfig v1.4.0
@@ -17,7 +16,6 @@ require (
 	github.com/stretchr/testify v1.6.1
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
-	golang.org/x/oauth2 v0.0.0-20191202225959-858c2ad4c8b6
 	k8s.io/api v0.19.9
 	k8s.io/apimachinery v0.19.9
 	k8s.io/client-go v0.19.9
