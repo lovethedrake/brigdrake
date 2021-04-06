@@ -3,9 +3,7 @@ package github
 import (
 	"encoding/json"
 	"log"
-	"strconv"
 
-	"github.com/google/go-github/v33/github"
 	"github.com/lovethedrake/brigdrake/pkg/brigade"
 	"github.com/lovethedrake/brigdrake/pkg/drake"
 	"github.com/pkg/errors"
@@ -87,56 +85,4 @@ func (t *trigger) Matches(event brigade.Event) (bool, error) {
 		)
 		return false, nil
 	}
-}
-
-func (t *trigger) JobStatusNotifier(
-	project brigade.Project, event brigade.Event,
-) (drake.JobStatusNotifier, error) {
-	appIDStr, ok := project.Secrets["BRIGDRAKE_GITHUB_APP_ID"]
-	if !ok {
-		return nil, nil
-	}
-	appID, err := strconv.ParseInt(appIDStr, 10, 64)
-	if err != nil {
-		return nil, nil
-	}
-	githubKey, ok := project.Secrets["BRIGDRAKE_GITHUB_KEY"]
-	if !ok {
-		return nil, nil
-	}
-	switch event.Type {
-	case "pull_request:opened",
-		"pull_request:synchronize",
-		"pull_request:reopened":
-		pre := github.PullRequestEvent{}
-		if err := json.Unmarshal(event.Payload, &pre); err != nil {
-			return nil, errors.Wrap(err, "error unmarshaling event payload")
-		}
-		return newJobStatusNotifier(
-			appID,
-			*pre.Installation.ID,
-			githubKey,
-			*pre.PullRequest.Base.Repo.Owner.Login,
-			*pre.PullRequest.Base.Repo.Name,
-			*pre.PullRequest.Head.SHA,
-		)
-	case "push":
-		pe := github.PushEvent{}
-		if err := json.Unmarshal(event.Payload, &pe); err != nil {
-			return nil, errors.Wrap(err, "error unmarshaling event payload")
-		}
-		// We don't want a notifier if this is for a tag push
-		if tagRefRegex.MatchString(*pe.Ref) {
-			return nil, nil
-		}
-		return newJobStatusNotifier(
-			appID,
-			*pe.Installation.ID,
-			githubKey,
-			*pe.Repo.Owner.Login,
-			*pe.Repo.Name,
-			*pe.HeadCommit.ID,
-		)
-	}
-	return nil, nil
 }

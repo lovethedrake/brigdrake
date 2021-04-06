@@ -40,9 +40,3 @@ func (t *trigger) Matches(event brigade.Event) (bool, error) {
 	log.Printf("%q event does not match trigger", event.Type)
 	return false, nil
 }
-
-func (t *trigger) JobStatusNotifier(
-	project brigade.Project, event brigade.Event,
-) (drake.JobStatusNotifier, error) {
-	return nil, nil
-}

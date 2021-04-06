@@ -3,12 +3,10 @@ package executor
 import (
 	"context"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
 	"github.com/lovethedrake/brigdrake/pkg/brigade"
-	"github.com/lovethedrake/brigdrake/pkg/drake"
 	"github.com/lovethedrake/drakecore/config"
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
@@ -30,38 +28,13 @@ func runJobPod(
 	event brigade.Event,
 	pipelineName string,
 	job config.Job,
-	jobStatusNotifier drake.JobStatusNotifier,
 	kubeClient kubernetes.Interface,
 ) error {
-	var err error
-	if jobStatusNotifier != nil {
-		if err = jobStatusNotifier.SendInProgressNotification(job); err != nil {
-			return err
-		}
-		defer func() {
-			jsnFn := jobStatusNotifier.SendFailureNotification
-			select {
-			case <-ctx.Done():
-				jsnFn = jobStatusNotifier.SendCancelledNotification
-			default:
-				if err == nil {
-					jsnFn = jobStatusNotifier.SendSuccessNotification
-				} else if _, ok := err.(*timedOutError); ok {
-					jsnFn = jobStatusNotifier.SendTimedOutNotification
-				}
-			}
-			if err = jsnFn(job); err != nil {
-				log.Printf("error sending job status notification: %s", err)
-			}
-		}()
-	}
-
 	// TODO: Let's not define the values for these in two places.
 	jobName := fmt.Sprintf("%s-%s", pipelineName, job.Name())
 	podName := fmt.Sprintf("%s-%s", jobName, event.BuildID)
 
-	var pod *v1.Pod
-	pod, err = buildJobPod(project, event, pipelineName, job)
+	pod, err := buildJobPod(project, event, pipelineName, job)
 
 	if _, err = kubeClient.CoreV1().Pods(
 		project.Kubernetes.Namespace,
