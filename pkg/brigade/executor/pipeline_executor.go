@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"github.com/lovethedrake/brigdrake/pkg/brigade"
-	"github.com/lovethedrake/brigdrake/pkg/drake"
 	"github.com/lovethedrake/drakecore/config"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -20,7 +19,6 @@ func executePipeline(
 	event brigade.Event,
 	workerConfig brigade.WorkerConfig,
 	pipeline config.Pipeline,
-	jobStatusNotifier drake.JobStatusNotifier,
 	kubeClient kubernetes.Interface,
 	wg *sync.WaitGroup,
 	errCh chan<- error,
@@ -169,7 +167,6 @@ jobsLoop:
 				event,
 				pipeline.Name(),
 				job.Job(),
-				jobStatusNotifier,
 				kubeClient,
 			); err != nil {
 				// This localErrCh write isn't in a select because we don't want it to

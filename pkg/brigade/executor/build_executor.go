@@ -66,10 +66,8 @@ func ExecuteBuild(
 		return errors.Wrapf(err, "error reading %s", drakefileLocation)
 	}
 
-	// Find all pipelines that are eligible for execution-- and associate them
-	// with a JobStatusNotifier obtained from the trigger that identified the
-	// pipeline as eligible.
-	pipelinesToExecute := map[config.Pipeline]drake.JobStatusNotifier{}
+	// Find all pipelines that are eligible for execution.
+	pipelinesToExecute := []config.Pipeline{}
 	for _, pipeline := range cfg.AllPipelines() {
 		log.Printf("evaluating triggers for pipeline %q", pipeline.Name())
 		for i, pipelineTrigger := range pipeline.Triggers() {
@@ -100,18 +98,7 @@ func ExecuteBuild(
 				)
 			}
 			if meetsCriteria {
-				jsn, err := trigger.JobStatusNotifier(project, event)
-				if err != nil {
-					return errors.Wrapf(
-						err,
-						"error obtaining job status notifier for trigger %d (%q) "+
-							"configuration for pipeline %q",
-						i,
-						pipelineTrigger.SpecURI(),
-						pipeline.Name(),
-					)
-				}
-				pipelinesToExecute[pipeline] = jsn
+				pipelinesToExecute = append(pipelinesToExecute, pipeline)
 				break // Stop iterating over triggers; move on to the next pipeline
 			}
 		}
@@ -135,7 +122,7 @@ func ExecuteBuild(
 	// Execute all pipelines we have identified-- each in their own goroutine
 	wg := &sync.WaitGroup{}
 	errCh := make(chan error)
-	for pipeline, jsn := range pipelinesToExecute {
+	for _, pipeline := range pipelinesToExecute {
 		p := pipeline // Avoid closing over a variable we're using for iteration
 		wg.Add(1)
 		go executePipeline(
@@ -144,7 +131,6 @@ func ExecuteBuild(
 			event,
 			workerConfig,
 			p,
-			jsn,
 			kubeClient,
 			wg,
 			errCh,
