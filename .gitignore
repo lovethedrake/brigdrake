@@ -2,8 +2,5 @@ bin/
 coverage.txt
 dockerd.logs
 Drakesecrets
-chart/**/charts/
-chart/build/
-chart/dist/
 /brigdrake-worker
 /brigdrake-worker.exe
