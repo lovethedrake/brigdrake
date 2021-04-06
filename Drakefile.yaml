@@ -89,12 +89,6 @@ jobs:
       - ./cmd/...
       - ./pkg/...
 
-  lint-chart:
-    primaryContainer:
-      <<: *baseHelmContainer
-      command: ["helm", "lint"]
-      args: ["chart/brigdrake"]
-
 ################################################################################
 # Build / publish jobs                                                         #
 ################################################################################
@@ -128,33 +122,11 @@ jobs:
       <<: *baseDindContainer
       command: ["scripts/build-and-publish-worker-dind.sh"]
 
-  build-chart:
-    primaryContainer:
-      <<: *baseHelmContainer
-      command: ["scripts/build-chart.sh"]
-      sharedStorageMountPath: /shared
-    sourceMountMode: COPY
-
   publish-worker-binary:
     primaryContainer:
       <<: *baseGoContainer
       command: ["scripts/publish-worker-binary.sh"]
       sharedStorageMountPath: /shared
-
-  publish-chart:
-    primaryContainer:
-      name: node
-      image: node:10.16.1
-      sourceMountPath: /brigdrake
-      workingDirectory: /brigdrake
-      command: ["scripts/publish-chart.sh"]
-      sharedStorageMountPath: /shared
-      resources:
-        cpu:
-          maxMillicores: 2000
-        memory:
-          maxMegabytes: 2048
-    sourceMountMode: COPY
 
 ################################################################################
 # Pipelines                                                                    #
@@ -191,19 +163,11 @@ pipelines:
     - name: upload-coverage-report
       dependencies:
       - test-unit
-    - name: lint-chart
     - name: build-worker-dind
       dependencies:
       - lint
       - verify-vendored-code
       - test-unit
-      - lint-chart
-    - name: build-chart
-      dependencies:
-      - lint
-      - verify-vendored-code
-      - test-unit
-      - lint-chart
 
   master:
     triggers:
@@ -220,19 +184,7 @@ pipelines:
     - name: lint
     - name: verify-vendored-code
     - name: test-unit
-    - name: lint-chart
-    - name: build-chart
-      dependencies:
-      - lint
-      - verify-vendored-code
-      - test-unit
-      - lint-chart
     - name: build-and-publish-worker-dind
-      dependencies:
-      - build-chart
-    - name: publish-chart
-      dependencies:
-      - build-and-publish-worker-dind
 
 ################################################################################
 # Release pipeline                                                             #
@@ -251,13 +203,7 @@ pipelines:
             - /v[0-9]+(\.[0-9]+)*(\-.+)?/
     jobs:
     - name: build-worker-binary
-    - name: build-chart
     - name: publish-worker-binary
       dependencies:
       - build-worker-binary
     - name: build-and-publish-worker-dind
-      dependencies:
-      - build-chart
-    - name: publish-chart
-      dependencies:
-      - build-and-publish-worker-dind
