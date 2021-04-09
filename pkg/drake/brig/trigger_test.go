@@ -18,8 +18,8 @@ func TestMatches(t *testing.T) {
 			name:    "unsupported event type",
 			trigger: &trigger{},
 			event: brigade.Event{
-				Provider: "github",
-				Type:     "pull_request:opened",
+				Source: "github",
+				Type:   "pull_request:opened",
 			},
 			assertions: func(t *testing.T, matches bool, err error) {
 				require.NoError(t, err)
@@ -32,8 +32,8 @@ func TestMatches(t *testing.T) {
 				EventTypes: []string{"foo"},
 			},
 			event: brigade.Event{
-				Provider: "brigade-cli",
-				Type:     "bar",
+				Source: BrigadeCLIEventSource,
+				Type:   "bar",
 			},
 			assertions: func(t *testing.T, matches bool, err error) {
 				require.NoError(t, err)
@@ -46,8 +46,8 @@ func TestMatches(t *testing.T) {
 				EventTypes: []string{"foo"},
 			},
 			event: brigade.Event{
-				Provider: "brigade-cli",
-				Type:     "foo",
+				Source: BrigadeCLIEventSource,
+				Type:   "foo",
 			},
 			assertions: func(t *testing.T, matches bool, err error) {
 				require.NoError(t, err)

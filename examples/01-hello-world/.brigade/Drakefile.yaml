@@ -1,0 +1,29 @@
+specUri: github.com/lovethedrake/drakespec
+specVersion: v0.6.0
+jobs:
+  build:
+    primaryContainer:
+      name: go
+      image: "debian:stretch"
+      command: [ "bash", "-c", "echo hello world" ]
+pipelines:
+  test:
+    triggers:
+      # This is a placeholder. No formal spec exists for this trigger yet.
+      # Stay tuned.
+      - specUri: github.com/lovethedrake/drakespec-github
+        specVersion: v1.0.0
+        config:
+          pullRequest:
+            targetBranches:
+              only:
+                - /.*/
+      # This is a placeholder. No formal spec exists for this trigger yet.
+      # Stay tuned.
+      - specUri: github.com/lovethedrake/drakespec-brig
+        specVersion: v1.0.0
+        config:
+          eventTypes:
+            - exec
+    jobs:
+      - name: build

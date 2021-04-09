@@ -23,7 +23,7 @@ func (p *pullRequestEventSelector) matches(
 		return false, nil
 	}
 	pre := github.PullRequestEvent{}
-	if err := json.Unmarshal(event.Payload, &pre); err != nil {
+	if err := json.Unmarshal([]byte(event.Payload), &pre); err != nil {
 		return false, errors.Wrap(err, "error unmarshaling event payload")
 	}
 	branch := *pre.PullRequest.Base.Ref

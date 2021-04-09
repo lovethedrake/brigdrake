@@ -22,7 +22,7 @@ type pushEventSelector struct {
 
 func (p *pushEventSelector) matches(event brigade.Event) (bool, error) {
 	pe := github.PushEvent{}
-	if err := json.Unmarshal(event.Payload, &pe); err != nil {
+	if err := json.Unmarshal([]byte(event.Payload), &pe); err != nil {
 		return false, errors.Wrap(err, "error unmarshaling event payload")
 	}
 	var fullRef string

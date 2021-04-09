@@ -8,6 +8,8 @@ import (
 	"github.com/lovethedrake/brigdrake/pkg/drake"
 )
 
+const BrigadeCLIEventSource = "brigade.sh/cli"
+
 type trigger struct {
 	EventTypes []string `json:"eventTypes"`
 }
@@ -22,10 +24,10 @@ func NewTriggerFromJSON(jsonBytes []byte) (drake.Trigger, error) {
 }
 
 func (t *trigger) Matches(event brigade.Event) (bool, error) {
-	if event.Provider != "brigade-cli" {
+	if event.Source != BrigadeCLIEventSource {
 		log.Printf(
-			"event from provider %q does not match brig trigger",
-			event.Provider,
+			"event from source %q does not match brig trigger",
+			event.Source,
 		)
 		return false, nil
 	}
