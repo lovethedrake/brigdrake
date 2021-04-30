@@ -9,9 +9,28 @@ jobs:
       - run: go run mage.go -v test
       - run: bash <(curl -s https://codecov.io/bash)
       - run: go run mage.go -v lint
+  publish:
+    docker:
+      - image: krancour/dind:18.09.5
+        user: root
+    steps:
+      - setup_remote_docker:
+          version: 19.03.13
+      - checkout
+      - run: scripts/build-and-publish-worker-dood.sh
+
 
 workflows:
   version: 2
-  build-workflow:
+  build:
     jobs:
       - test
+      - publish:
+          requires:
+            - test
+          context:
+            - prod
+          filters:
+            branches:
+              only:
+                - master

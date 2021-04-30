@@ -33,6 +33,10 @@ func Build() {
 		"brigadecore/go-tools:v0.1.0", "scripts/build-worker-binary.sh", runtime.GOOS, runtime.GOARCH)
 }
 
+func BuildImage() {
+	must.RunV("./scripts/build-worker-dood.sh")
+}
+
 // Run go tests
 func Test() {
 	coverageFile := filepath.Join(mage.GetOutputDir(), "coverage.txt")
