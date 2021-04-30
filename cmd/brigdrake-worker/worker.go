@@ -8,8 +8,6 @@ import (
 	"github.com/lovethedrake/brigdrake/pkg/signals"
 	"github.com/lovethedrake/brigdrake/pkg/version"
 	"github.com/lovethedrake/drakecore/config"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 )
 
 func main() {
@@ -22,38 +20,13 @@ func main() {
 		config.SupportedSpecVersions,
 	)
 
-	clientConfig, err := rest.InClusterConfig()
-	if err != nil {
-		log.Fatal(err)
-	}
-	kubeClient, err := kubernetes.NewForConfig(clientConfig)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	workerConfig, err := brigade.GetWorkerConfigFromEnvironment()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	project, err := brigade.GetProjectFromEnvironmentAndSecret(kubeClient)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	event, err := brigade.GetEventFromEnvironment()
+	event, err := brigade.LoadEvent()
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	ctx := signals.Context()
-	if err = executor.ExecuteBuild(
-		ctx,
-		project,
-		event,
-		workerConfig,
-		kubeClient,
-	); err != nil {
+	if err = executor.ExecuteBuild(ctx, event); err != nil {
 		log.Fatal(err)
 	}
 }

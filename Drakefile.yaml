@@ -63,16 +63,9 @@ jobs:
   test-unit:
     primaryContainer:
       <<: *baseGoContainer
-      command: ["go", "test"]
-      args:
-      - -timeout
-      - 30s
-      - -race
-      - -coverprofile=/shared/coverage.txt
-      - -covermode=atomic
-      - ./cmd/...
-      - ./pkg/...
+      command: ["go", "run", "mage.go", "test"]
       sharedStorageMountPath: /shared
+    sourceMountMode: COPY
 
   upload-coverage-report:
     primaryContainer:
@@ -84,10 +77,8 @@ jobs:
   lint:
     primaryContainer:
       <<: *baseGoContainer
-      command: ["golangci-lint", "run"]
-      args:
-      - ./cmd/...
-      - ./pkg/...
+      command: ["go", "run", "mage.go", "lint"]
+    sourceMountMode: COPY
 
 ################################################################################
 # Build / publish jobs                                                         #
@@ -97,7 +88,7 @@ jobs:
     primaryContainer:
       <<: *baseGoContainer
       environment:
-      - CGO_ENABLED=0
+        CGO_ENABLED: "0"
       command: ["scripts/build-worker-binary.sh"]
       args: ["linux", "amd64"]
       sharedStorageMountPath: /shared

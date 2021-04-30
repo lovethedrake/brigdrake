@@ -2,6 +2,8 @@ package executor
 
 import (
 	"context"
+	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"sync"
@@ -12,7 +14,6 @@ import (
 	"github.com/lovethedrake/brigdrake/pkg/drake/github"
 	"github.com/lovethedrake/drakecore/config"
 	"github.com/pkg/errors"
-	"k8s.io/client-go/kubernetes"
 )
 
 var triggerBuilderFns = map[string]func([]byte) (drake.Trigger, error){
@@ -23,13 +24,7 @@ var triggerBuilderFns = map[string]func([]byte) (drake.Trigger, error){
 // ExecuteBuild can execute a Brigade build driven via Drakefile.yaml when
 // supplied with a Brigade project, event, and worker configuration, as well
 // as a Kubernetes client.
-func ExecuteBuild(
-	ctx context.Context,
-	project brigade.Project,
-	event brigade.Event,
-	workerConfig brigade.WorkerConfig,
-	kubeClient kubernetes.Interface,
-) error {
+func ExecuteBuild(ctx context.Context, event brigade.Event) error {
 	// nolint: lll
 	possibleDrakefileLocations := []string{
 		"/etc/brigade/script",                        // data mounted from event secret (e.g. brig run)
@@ -56,15 +51,35 @@ func ExecuteBuild(
 		drakefileLocation = possibleDrakefileLocation
 		break
 	}
+
+	var drakefile string
+	var cfg config.Config
 	if drakefileLocation == "" {
-		return errors.New("could not locate Drakefile.yaml")
+		var ok bool
+		if drakefile, ok = event.Worker.DefaultConfigFiles["Drakefile.yaml"]; ok {
+			log.Printf("loading configuration from project worker template")
+			var err error
+			cfg, err = config.NewConfigFromYAML([]byte(drakefile))
+			if err != nil {
+				return errors.Wrapf(err, "error reading Drakefile contents from project worker template\n%s", drakefile)
+			}
+		} else {
+			return errors.New("could not locate Drakefile.yaml")
+		}
+	} else {
+		log.Printf("loading configuration from %q", drakefileLocation)
+		drakefileB, err := ioutil.ReadFile(drakefileLocation)
+		if err != nil {
+			return errors.Wrapf(err, "error reading Drakefile at %s", drakefileLocation)
+		}
+		cfg, err = config.NewConfigFromYAML(drakefileB)
+		if err != nil {
+			return errors.Wrapf(err, "error reading %s", drakefileLocation)
+		}
+		drakefile = string(drakefileB)
 	}
 
-	log.Printf("loading configuration from %q", drakefileLocation)
-	cfg, err := config.NewConfigFromFile(drakefileLocation)
-	if err != nil {
-		return errors.Wrapf(err, "error reading %s", drakefileLocation)
-	}
+	log.Printf("loaded Drakefile configuration:\n%s", drakefile)
 
 	// Find all pipelines that are eligible for execution.
 	pipelinesToExecute := []config.Pipeline{}
@@ -74,6 +89,7 @@ func ExecuteBuild(
 			triggerBuilderFn, ok := triggerBuilderFns[pipelineTrigger.SpecURI()]
 			if !ok {
 				// Don't know what to do with this trigger...
+				log.Printf("skipping unregistered trigger %s", pipelineTrigger.SpecURI())
 				continue // Next trigger
 			}
 			trigger, err := triggerBuilderFn(pipelineTrigger.Config())
@@ -98,6 +114,7 @@ func ExecuteBuild(
 				)
 			}
 			if meetsCriteria {
+				fmt.Printf("adding pipeline %s", pipeline.Name())
 				pipelinesToExecute = append(pipelinesToExecute, pipeline)
 				break // Stop iterating over triggers; move on to the next pipeline
 			}
@@ -106,18 +123,9 @@ func ExecuteBuild(
 
 	// Bail if we found no pipelines to execute
 	if len(pipelinesToExecute) == 0 {
+		fmt.Println("no pipelines were triggered by the event")
 		return nil
 	}
-
-	// Create build secret
-	if err := createBuildSecret(project, event, kubeClient); err != nil {
-		return err
-	}
-	defer func() {
-		if err := destroyBuildSecret(project, event, kubeClient); err != nil {
-			log.Printf("error destroying build secret: %s", err)
-		}
-	}()
 
 	// Execute all pipelines we have identified-- each in their own goroutine
 	wg := &sync.WaitGroup{}
@@ -127,11 +135,8 @@ func ExecuteBuild(
 		wg.Add(1)
 		go executePipeline(
 			ctx,
-			project,
 			event,
-			workerConfig,
 			p,
-			kubeClient,
 			wg,
 			errCh,
 		)

@@ -18,7 +18,7 @@ func TestMatches(t *testing.T) {
 			name:    "non-github event",
 			trigger: &trigger{},
 			event: brigade.Event{
-				Provider: "bitbucket",
+				Source: "bitbucket",
 			},
 			assertions: func(t *testing.T, matches bool, err error) {
 				require.NoError(t, err)
@@ -29,8 +29,8 @@ func TestMatches(t *testing.T) {
 			name:    "unsupported event type",
 			trigger: &trigger{},
 			event: brigade.Event{
-				Provider: "github",
-				Type:     "pull_request",
+				Source: "github",
+				Type:   "pull_request",
 			},
 			assertions: func(t *testing.T, matches bool, err error) {
 				require.NoError(t, err)
@@ -42,8 +42,8 @@ func TestMatches(t *testing.T) {
 				"selector",
 			trigger: &trigger{},
 			event: brigade.Event{
-				Provider: "github",
-				Type:     "check_suite:requested",
+				Source: "github",
+				Type:   "check_suite:requested",
 			},
 			assertions: func(t *testing.T, matches bool, err error) {
 				require.NoError(t, err)
@@ -56,8 +56,8 @@ func TestMatches(t *testing.T) {
 				PullRequestEventSelector: &pullRequestEventSelector{},
 			},
 			event: brigade.Event{
-				Provider: "github",
-				Type:     "pull_request:opened",
+				Source: "github",
+				Type:   "pull_request:opened",
 			},
 			assertions: func(t *testing.T, matches bool, err error) {
 				require.NoError(t, err)
@@ -74,9 +74,9 @@ func TestMatches(t *testing.T) {
 				},
 			},
 			event: brigade.Event{
-				Provider: "github",
-				Type:     "pull_request:opened",
-				Payload:  []byte(`{"action":"opened","pull_request":{"base":{"ref":"foo"}}}`), // nolint: lll
+				Source:  "github",
+				Type:    "pull_request:opened",
+				Payload: `{"action":"opened","pull_request":{"base":{"ref":"foo"}}}`, // nolint: lll
 			},
 			assertions: func(t *testing.T, matches bool, err error) {
 				require.NoError(t, err)
@@ -93,9 +93,9 @@ func TestMatches(t *testing.T) {
 				},
 			},
 			event: brigade.Event{
-				Provider: "github",
-				Type:     "pull_request:opened",
-				Payload:  []byte(`{"action":"opened","pull_request":{"base":{"ref":"master"}}}`), // nolint: lll
+				Source:  "github",
+				Type:    "pull_request:opened",
+				Payload: `{"action":"opened","pull_request":{"base":{"ref":"master"}}}`, // nolint: lll
 			},
 			assertions: func(t *testing.T, matches bool, err error) {
 				require.NoError(t, err)
@@ -106,9 +106,9 @@ func TestMatches(t *testing.T) {
 			name:    "push event for branch with no push event selector",
 			trigger: &trigger{},
 			event: brigade.Event{
-				Provider: "github",
-				Type:     "push",
-				Payload:  []byte(`{"ref":"refs/heads/master"}`),
+				Source:  "github",
+				Type:    "push",
+				Payload: `{"ref":"refs/heads/master"}`,
 			},
 			assertions: func(t *testing.T, matches bool, err error) {
 				require.NoError(t, err)
@@ -122,9 +122,9 @@ func TestMatches(t *testing.T) {
 				PushEventSelector: &pushEventSelector{},
 			},
 			event: brigade.Event{
-				Provider: "github",
-				Type:     "push",
-				Payload:  []byte(`{"ref":"refs/heads/master"}`),
+				Source:  "github",
+				Type:    "push",
+				Payload: `{"ref":"refs/heads/master"}`,
 			},
 			assertions: func(t *testing.T, matches bool, err error) {
 				require.NoError(t, err)
@@ -142,9 +142,9 @@ func TestMatches(t *testing.T) {
 				},
 			},
 			event: brigade.Event{
-				Provider: "github",
-				Type:     "push",
-				Payload:  []byte(`{"ref":"refs/heads/foo"}`),
+				Source:  "github",
+				Type:    "push",
+				Payload: `{"ref":"refs/heads/foo"}`,
 			},
 			assertions: func(t *testing.T, matches bool, err error) {
 				require.NoError(t, err)
@@ -162,9 +162,9 @@ func TestMatches(t *testing.T) {
 				},
 			},
 			event: brigade.Event{
-				Provider: "github",
-				Type:     "push",
-				Payload:  []byte(`{"ref":"refs/heads/master"}`),
+				Source:  "github",
+				Type:    "push",
+				Payload: `{"ref":"refs/heads/master"}`,
 			},
 			assertions: func(t *testing.T, matches bool, err error) {
 				require.NoError(t, err)
@@ -175,9 +175,9 @@ func TestMatches(t *testing.T) {
 			name:    "push event for tag with no push event selector",
 			trigger: &trigger{},
 			event: brigade.Event{
-				Provider: "github",
-				Type:     "push",
-				Payload:  []byte(`{"ref":"refs/tags/foo"}`),
+				Source:  "github",
+				Type:    "push",
+				Payload: `{"ref":"refs/tags/foo"}`,
 			},
 			assertions: func(t *testing.T, matches bool, err error) {
 				require.NoError(t, err)
@@ -191,9 +191,9 @@ func TestMatches(t *testing.T) {
 				PushEventSelector: &pushEventSelector{},
 			},
 			event: brigade.Event{
-				Provider: "github",
-				Type:     "push",
-				Payload:  []byte(`{"ref":"refs/tags/foo"}`),
+				Source:  "github",
+				Type:    "push",
+				Payload: `{"ref":"refs/tags/foo"}`,
 			},
 			assertions: func(t *testing.T, matches bool, err error) {
 				require.NoError(t, err)
@@ -211,9 +211,9 @@ func TestMatches(t *testing.T) {
 				},
 			},
 			event: brigade.Event{
-				Provider: "github",
-				Type:     "push",
-				Payload:  []byte(`{"ref":"refs/tags/bar"}`),
+				Source:  "github",
+				Type:    "push",
+				Payload: `{"ref":"refs/tags/bar"}`,
 			},
 			assertions: func(t *testing.T, matches bool, err error) {
 				require.NoError(t, err)
@@ -231,9 +231,9 @@ func TestMatches(t *testing.T) {
 				},
 			},
 			event: brigade.Event{
-				Provider: "github",
-				Type:     "push",
-				Payload:  []byte(`{"ref":"refs/tags/foo"}`),
+				Source:  "github",
+				Type:    "push",
+				Payload: `{"ref":"refs/tags/foo"}`,
 			},
 			assertions: func(t *testing.T, matches bool, err error) {
 				require.NoError(t, err)

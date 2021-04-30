@@ -25,10 +25,10 @@ func NewTriggerFromJSON(jsonBytes []byte) (drake.Trigger, error) {
 }
 
 func (t *trigger) Matches(event brigade.Event) (bool, error) {
-	if event.Provider != "github" {
+	if event.Source != "github" {
 		log.Printf(
 			"event from provider %q does not match github trigger",
-			event.Provider,
+			event.Source,
 		)
 		return false, nil
 	}

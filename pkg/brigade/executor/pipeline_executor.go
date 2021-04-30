@@ -7,119 +7,17 @@ import (
 
 	"github.com/lovethedrake/brigdrake/pkg/brigade"
 	"github.com/lovethedrake/drakecore/config"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/selection"
-	"k8s.io/client-go/kubernetes"
 )
 
 func executePipeline(
 	ctx context.Context,
-	project brigade.Project,
 	event brigade.Event,
-	workerConfig brigade.WorkerConfig,
 	pipeline config.Pipeline,
-	kubeClient kubernetes.Interface,
 	wg *sync.WaitGroup,
 	errCh chan<- error,
 ) {
 	defer wg.Done()
 	log.Printf("executing pipeline %q", pipeline.Name())
-
-	// If ANY of the pipeline's jobs' containers mounts shared storage, we need to
-	// create a volume.
-	var pipelineNeedsSharedStorage bool
-jobsLoop:
-	for _, pipelineJob := range pipeline.Jobs() {
-		if pipelineJob.Job().PrimaryContainer().SharedStorageMountPath() != "" {
-			pipelineNeedsSharedStorage = true
-			break jobsLoop
-		}
-		for _, sidecarContainer := range pipelineJob.Job().SidecarContainers() {
-			if sidecarContainer.SharedStorageMountPath() != "" {
-				pipelineNeedsSharedStorage = true
-				break jobsLoop
-			}
-		}
-	}
-	if pipelineNeedsSharedStorage {
-		log.Printf("creating shared storage for pipeline %q", pipeline.Name())
-		var err error
-		if err = createSharedStoragePVC(
-			project,
-			event,
-			workerConfig,
-			pipeline.Name(),
-			kubeClient,
-		); err != nil {
-			errCh <- err
-			return
-		}
-		log.Printf("created shared storage for pipeline %q", pipeline.Name())
-	}
-
-	var err error
-	defer func() {
-		// If context was canceled, we have a bunch of job pods to get rid of that
-		// we'd like to keep otherwise.
-		select {
-		case <-ctx.Done():
-			labelSelector := labels.NewSelector()
-			if workerRequirement, rerr := labels.NewRequirement(
-				"worker",
-				selection.Equals,
-				[]string{event.WorkerID},
-			); rerr != nil {
-				log.Printf(
-					"error deleting pods for pipeline %q: %s",
-					pipeline.Name(),
-					rerr,
-				)
-			} else {
-				labelSelector = labelSelector.Add(*workerRequirement)
-				log.Printf("deleting pods %q", labelSelector.String())
-				if derr := kubeClient.CoreV1().Pods(
-					project.Kubernetes.Namespace,
-				).DeleteCollection(ctx,
-					metav1.DeleteOptions{},
-					metav1.ListOptions{
-						LabelSelector: labelSelector.String(),
-					},
-				); derr != nil {
-					log.Printf(
-						"error deleting pods for pipeline %q: %s",
-						pipeline.Name(),
-						derr,
-					)
-				}
-			}
-		default:
-		}
-
-		// Clean up the shared storage if there is any
-		if pipelineNeedsSharedStorage {
-			log.Printf("destroying shared storage for pipeline %q", pipeline.Name())
-			if derr := destroySharedStoragePVC(
-				project,
-				event,
-				pipeline.Name(),
-				kubeClient,
-			); derr != nil {
-				log.Printf(
-					"error destroying shared storage for pipeline %q: %s",
-					pipeline.Name(),
-					derr,
-				)
-			} else {
-				log.Printf(
-					"destroyed shared storage for pipeline %q",
-					pipeline.Name(),
-				)
-			}
-		}
-		errCh <- err
-	}()
-
 	jobs := pipeline.Jobs()
 
 	// Build a map of channels that lets the job scheduler subscribe to the
@@ -161,13 +59,11 @@ jobsLoop:
 					return
 				}
 			}
-			if err := runJobPod(
+			if err := runJob(
 				ctx,
-				project,
 				event,
 				pipeline.Name(),
 				job.Job(),
-				kubeClient,
 			); err != nil {
 				// This localErrCh write isn't in a select because we don't want it to
 				// be interruptable since we never want to lose an error message. And we
