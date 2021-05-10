@@ -2,11 +2,9 @@
 
 set -euox pipefail
 
-base_package_name=github.com/lovethedrake/brigdrake
-
 docker build \
-  --build-arg VERSION=$rel_version \
-  --build-arg COMMIT=$git_version \
-  -t $base_image_name:$git_version \
+  --build-arg VERSION=$REL_VERSION \
+  --build-arg COMMIT=$GIT_VERSION \
+  -t $BASE_IMAGE_NAME:$GIT_VERSION \
   .
-docker tag $base_image_name:$git_version $base_image_name:$rel_version
+docker tag $BASE_IMAGE_NAME:$GIT_VERSION $BASE_IMAGE_NAME:$REL_VERSION

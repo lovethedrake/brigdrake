@@ -27,9 +27,5 @@ dockerd \
 # Wait for the containerized dockerd to be ready
 scripts/wupiao.sh localhost 2375 300
 
-set +x # Don't let the value of $DOCKER_PASSWORD bleed into the logs!
-docker login -u krancour -p $DOCKER_PASSWORD
-set -x
-
 scripts/docker-build.sh
 scripts/docker-publish.sh
