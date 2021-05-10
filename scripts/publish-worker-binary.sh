@@ -10,6 +10,6 @@ go get -u github.com/tcnksm/ghr
 
 set +x
 
-echo "Publishing binary for commit $full_git_version"
+echo "Publishing binary for commit $FULL_GIT_VERSION"
 
-ghr -t $GITHUB_TOKEN -u lovethedrake -r brigdrake -c $full_git_version -delete $rel_version /shared/bin/
+ghr -t $GITHUB_TOKEN -u lovethedrake -r brigdrake -c $FULL_GIT_VERSION -delete $REL_VERSION /shared/bin/

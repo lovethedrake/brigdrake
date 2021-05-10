@@ -7,7 +7,7 @@ set -euo pipefail
 source scripts/versioning.sh
 
 base_package_name=github.com/lovethedrake/brigdrake
-ldflags="-w -X $base_package_name/pkg/version.version=$rel_version -X $base_package_name/pkg/version.commit=$git_version"
+ldflags="-w -X $base_package_name/pkg/version.version=$REL_VERSION -X $base_package_name/pkg/version.commit=$GIT_VERSION"
 
 set -x
 
