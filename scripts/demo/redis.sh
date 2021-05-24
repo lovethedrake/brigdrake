@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# AVOID INVOKING THIS SCRIPT DIRECTLY -- USE `drake run redis`
+# AVOID INVOKING THIS SCRIPT DIRECTLY -- USE `mallard run redis`
 
 set -euox pipefail
 

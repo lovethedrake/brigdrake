@@ -6,8 +6,8 @@ snippets:
   baseGoContainer: &baseGoContainer
     name: go
     image: brigadecore/go-tools:v0.1.0
-    sourceMountPath: /brigdrake
-    workingDirectory: /brigdrake
+    sourceMountPath: /canard
+    workingDirectory: /canard
     tty: true
     resources:
       cpu:
@@ -18,8 +18,8 @@ snippets:
   baseDindContainer: &baseDindContainer
     name: dind
     image: krancour/dind:18.09.5
-    sourceMountPath: /brigdrake
-    workingDirectory: /brigdrake
+    sourceMountPath: /canard
+    workingDirectory: /canard
     privileged: true
     resources:
       cpu:
@@ -30,8 +30,8 @@ snippets:
   baseHelmContainer: &baseHelmContainer
     name: helm
     image: dtzar/helm-kubectl:2.17.0
-    sourceMountPath: /brigdrake
-    workingDirectory: /brigdrake
+    sourceMountPath: /canard
+    workingDirectory: /canard
     resources:
       cpu:
         maxMillicores: 2000
@@ -84,39 +84,39 @@ jobs:
 # Build / publish jobs                                                         #
 ################################################################################
 
-  build-worker-binary:
+  build-binary:
     primaryContainer:
       <<: *baseGoContainer
       environment:
         CGO_ENABLED: "0"
-      command: ["scripts/build-worker-binary.sh"]
+      command: ["scripts/build-binary.sh"]
       args: ["linux", "amd64"]
       sharedStorageMountPath: /shared
 
   # This requires a lot of privilege to run and may be useful locally, but
   # favor the DinD variant for use in CI/CD pipelines.
-  build-worker-dood:
+  build-dood:
     primaryContainer:
       <<: *baseDindContainer
       privileged: false
       mountDockerSocket: true
       tty: true
-      command: ["scripts/build-worker-dood.sh"]
+      command: ["scripts/build-dood.sh"]
 
-  build-worker-dind:
+  build-dind:
     primaryContainer:
       <<: *baseDindContainer
-      command: ["scripts/build-worker-dind.sh"]
+      command: ["scripts/build-dind.sh"]
 
-  build-and-publish-worker-dind:
+  build-and-publish-dind:
     primaryContainer:
       <<: *baseDindContainer
-      command: ["scripts/build-and-publish-worker-dind.sh"]
+      command: ["scripts/build-and-publish-dind.sh"]
 
-  publish-worker-binary:
+  publish-binary:
     primaryContainer:
       <<: *baseGoContainer
-      command: ["scripts/publish-worker-binary.sh"]
+      command: ["scripts/publish-binary.sh"]
       sharedStorageMountPath: /shared
 
 ################################################################################
@@ -154,7 +154,7 @@ pipelines:
     - name: upload-coverage-report
       dependencies:
       - test-unit
-    - name: build-worker-dind
+    - name: build-dind
       dependencies:
       - lint
       - verify-vendored-code
@@ -175,7 +175,7 @@ pipelines:
     - name: lint
     - name: verify-vendored-code
     - name: test-unit
-    - name: build-and-publish-worker-dind
+    - name: build-and-publish-dind
 
 ################################################################################
 # Release pipeline                                                             #
@@ -193,8 +193,8 @@ pipelines:
             only:
             - /v[0-9]+(\.[0-9]+)*(\-.+)?/
     jobs:
-    - name: build-worker-binary
-    - name: publish-worker-binary
+    - name: build-binary
+    - name: publish-binary
       dependencies:
-      - build-worker-binary
-    - name: build-and-publish-worker-dind
+      - build-binary
+    - name: build-and-publish-dind

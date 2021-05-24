@@ -1,4 +1,4 @@
-module github.com/lovethedrake/brigdrake
+module github.com/lovethedrake/canard
 
 go 1.15
 

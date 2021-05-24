@@ -7,10 +7,9 @@ description: Demonstrates a using drake with brigade
 spec:
   workerTemplate:
     container:
-      image: "carolynvs/brigdrake-worker:unstable"
+      image: "carolynvs/canard:unstable"
       imagePullPolicy: Always
     configFilesDirectory: examples/01-hello-world/.brigade
     git:
-      cloneURL: https://github.com/lovethedrake/brigdrake.git
+      cloneURL: https://github.com/lovethedrake/canard.git
       ref: refs/heads/v2
-

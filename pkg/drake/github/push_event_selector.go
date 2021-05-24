@@ -6,7 +6,7 @@ import (
 	"regexp"
 
 	"github.com/google/go-github/v33/github"
-	"github.com/lovethedrake/brigdrake/pkg/brigade"
+	"github.com/lovethedrake/canard/pkg/brigade"
 	"github.com/pkg/errors"
 )
 

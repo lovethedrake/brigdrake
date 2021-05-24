@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# AVOID INVOKING THIS SCRIPT DIRECTLY -- USE `drake run publish-worker-binary`
+# AVOID INVOKING THIS SCRIPT DIRECTLY -- USE `mallard run publish-binary`
 
 set -euox pipefail
 
@@ -12,4 +12,4 @@ set +x
 
 echo "Publishing binary for commit $FULL_GIT_VERSION"
 
-ghr -t $GITHUB_TOKEN -u lovethedrake -r brigdrake -c $FULL_GIT_VERSION -delete $REL_VERSION /shared/bin/
+ghr -t $GITHUB_TOKEN -u lovethedrake -r canard -c $FULL_GIT_VERSION -delete $REL_VERSION /shared/bin/
