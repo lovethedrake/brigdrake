@@ -3,7 +3,7 @@ package brig
 import (
 	"testing"
 
-	"github.com/lovethedrake/brigdrake/pkg/brigade"
+	"github.com/lovethedrake/canard/pkg/brigade"
 	"github.com/stretchr/testify/require"
 )
 

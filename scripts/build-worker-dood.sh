@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# AVOID INVOKING THIS SCRIPT DIRECTLY -- USE `drake run build-worker-dood
+# AVOID INVOKING THIS SCRIPT DIRECTLY -- USE `mallard run build-dood
 
 set -euo pipefail
 

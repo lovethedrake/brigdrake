@@ -8,10 +8,10 @@ import (
 	"os"
 	"sync"
 
-	"github.com/lovethedrake/brigdrake/pkg/brigade"
-	"github.com/lovethedrake/brigdrake/pkg/drake"
-	"github.com/lovethedrake/brigdrake/pkg/drake/brig"
-	"github.com/lovethedrake/brigdrake/pkg/drake/github"
+	"github.com/lovethedrake/canard/pkg/brigade"
+	"github.com/lovethedrake/canard/pkg/drake"
+	"github.com/lovethedrake/canard/pkg/drake/brig"
+	"github.com/lovethedrake/canard/pkg/drake/github"
 	"github.com/lovethedrake/go-drake/config"
 	"github.com/pkg/errors"
 )

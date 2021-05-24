@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# AVOID INVOKING THIS SCRIPT DIRECTLY -- USE `drake run build-worker-dind
+# AVOID INVOKING THIS SCRIPT DIRECTLY -- USE `mallard run build-dind
 
 set -euo pipefail
 

@@ -1,14 +1,13 @@
-# BrigDrake
+# Canard
 
-[![codecov](https://codecov.io/gh/lovethedrake/brigdrake/branch/master/graph/badge.svg)](https://codecov.io/gh/lovethedrake/brigdrake)
+[![codecov](https://codecov.io/gh/lovethedrake/canard/branch/master/graph/badge.svg)](https://codecov.io/gh/lovethedrake/canard)
 
-__BrigDrake__ provides Drake pipeline support for
-[Brigade](https://brigade.sh/).
+_Canard__ provides Drake support for [Brigade](https://brigade.sh/).
 
 ## THIS PROJECT HIGHLY VOLATILE!
 
-brigdrake implements the highly volatile
-[DrakeSpec](https://github.com/lovethedrake/drakespec) and, as such is, itself,
+Canard implements the highly volatile
+[Drake](https://github.com/lovethedrake/spec) and, as such is, itself,
 highly volatile. Users are warned that breaking changes to this software are
 likely at any point up until its eventual 1.0 release.
 
@@ -21,7 +20,7 @@ volatility.
 
 First install [Brigade v2](https://github.com/brigadecore/brigade/tree/v2) then
 Drake-enable any Brigade 2 project by using
-`lovethedrake/brigdrake:<placeholder>` as your worker image.
+`lovethedrake/canard:<placeholder>` as your worker image.
 
 More comprehensive instructions are will be forthcoming as this project
 gradually begins to stabilize.

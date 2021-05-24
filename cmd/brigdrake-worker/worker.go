@@ -3,17 +3,17 @@ package main
 import (
 	"log"
 
-	"github.com/lovethedrake/brigdrake/pkg/brigade"
-	"github.com/lovethedrake/brigdrake/pkg/brigade/executor"
-	"github.com/lovethedrake/brigdrake/pkg/signals"
-	"github.com/lovethedrake/brigdrake/pkg/version"
+	"github.com/lovethedrake/canard/pkg/brigade"
+	"github.com/lovethedrake/canard/pkg/brigade/executor"
+	"github.com/lovethedrake/canard/pkg/signals"
+	"github.com/lovethedrake/canard/pkg/version"
 	"github.com/lovethedrake/go-drake/config"
 )
 
 func main() {
 
 	log.Printf(
-		"Starting BrigDrake worker -- version %s -- commit %s -- supports "+
+		"Starting Canard worker -- version %s -- commit %s -- supports "+
 			"DrakeSpec %s",
 		version.Version(),
 		version.Commit(),

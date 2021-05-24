@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/carolynvs/magex/shx"
-	"github.com/lovethedrake/brigdrake/pkg/drake/brig"
+	"github.com/lovethedrake/canard/pkg/drake/brig"
 
 	// Import shared mage targets for drake
 	// mage:import
@@ -27,14 +27,14 @@ var must = shx.CommandBuilder{StopOnError: true}
 func Build() {
 	pwd, _ := os.Getwd()
 	must.RunV("docker", "run", "--rm",
-		"-v", pwd+":/go/src/github.com/lovethedrake/brigdrake",
-		"-w", "/go/src/github.com/lovethedrake/brigdrake",
+		"-v", pwd+":/go/src/github.com/lovethedrake/canard",
+		"-w", "/go/src/github.com/lovethedrake/canard",
 		"-v", pwd+"/bin:/shared/bin/drake",
-		"brigadecore/go-tools:v0.1.0", "scripts/build-worker-binary.sh", runtime.GOOS, runtime.GOARCH)
+		"brigadecore/go-tools:v0.1.0", "scripts/build-binary.sh", runtime.GOOS, runtime.GOARCH)
 }
 
 func BuildImage() {
-	must.RunV("./scripts/build-worker-dood.sh")
+	must.RunV("./scripts/build-dood.sh")
 }
 
 // Run go tests
@@ -45,9 +45,9 @@ func Test() {
 
 // Build locally and run the hello-world example
 func Example() {
-	must.RunV("drake", "run", "build-worker-dood")
-	img := "carolynvs/brigdrake-worker:unstable"
-	must.RunV("docker", "tag", "brigdrake-worker:unstable", img)
+	must.RunV("drake", "run", "build-dood")
+	img := "carolynvs/canard:unstable"
+	must.RunV("docker", "tag", "canard:unstable", img)
 	must.RunV("docker", "push", img)
 	output, _ := must.OutputV("brig", "event", "create", "-p", "hello-world", "-s", brig.BrigadeCLIEventSource)
 	r := regexp.MustCompile(`Created event "(.*)"`)
