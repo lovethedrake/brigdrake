@@ -24,10 +24,10 @@ github.com/hashicorp/go-cleanhttp
 github.com/hashicorp/go-retryablehttp
 # github.com/kr/pretty v0.2.0
 ## explicit
-# github.com/lovethedrake/drakecore v0.14.1-0.20210430170705-ef9df763eab4
+# github.com/lovethedrake/go-drake v0.15.0
 ## explicit
-github.com/lovethedrake/drakecore/config
-github.com/lovethedrake/drakecore/mage
+github.com/lovethedrake/go-drake/config
+github.com/lovethedrake/go-drake/mage
 # github.com/magefile/mage v1.11.0
 ## explicit
 github.com/magefile/mage/internal
