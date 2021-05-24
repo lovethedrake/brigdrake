@@ -9,7 +9,7 @@ import (
 	"github.com/brigadecore/brigade/sdk/v2/restmachinery"
 	"github.com/lovethedrake/brigdrake/pkg/brigade"
 	"github.com/lovethedrake/brigdrake/pkg/brigade/drakespec"
-	"github.com/lovethedrake/drakecore/config"
+	"github.com/lovethedrake/go-drake/config"
 	"github.com/pkg/errors"
 )
 

@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/lovethedrake/brigdrake/pkg/brigade"
-	"github.com/lovethedrake/drakecore/config"
+	"github.com/lovethedrake/go-drake/config"
 )
 
 func executePipeline(

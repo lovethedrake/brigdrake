@@ -7,7 +7,7 @@ import (
 	"github.com/lovethedrake/brigdrake/pkg/brigade/executor"
 	"github.com/lovethedrake/brigdrake/pkg/signals"
 	"github.com/lovethedrake/brigdrake/pkg/version"
-	"github.com/lovethedrake/drakecore/config"
+	"github.com/lovethedrake/go-drake/config"
 )
 
 func main() {

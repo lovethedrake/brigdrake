@@ -2,7 +2,7 @@ package drakespec
 
 import (
 	"github.com/brigadecore/brigade/sdk/v2/core"
-	"github.com/lovethedrake/drakecore/config"
+	"github.com/lovethedrake/go-drake/config"
 )
 
 func ToBrigadeJob(jobDef config.Job) core.Job {
