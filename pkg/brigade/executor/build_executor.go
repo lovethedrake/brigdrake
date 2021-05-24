@@ -12,7 +12,7 @@ import (
 	"github.com/lovethedrake/brigdrake/pkg/drake"
 	"github.com/lovethedrake/brigdrake/pkg/drake/brig"
 	"github.com/lovethedrake/brigdrake/pkg/drake/github"
-	"github.com/lovethedrake/drakecore/config"
+	"github.com/lovethedrake/go-drake/config"
 	"github.com/pkg/errors"
 )
 
