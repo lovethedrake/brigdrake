@@ -9,7 +9,7 @@ require (
 	github.com/carolynvs/magex v0.5.0
 	github.com/google/go-github/v33 v33.0.0
 	github.com/kr/pretty v0.2.0 // indirect
-	github.com/lovethedrake/drakecore v0.14.1-0.20210430170705-ef9df763eab4
+	github.com/lovethedrake/go-drake v0.15.0
 	github.com/magefile/mage v1.11.0
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.6.1
